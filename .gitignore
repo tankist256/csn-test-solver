@@ -16,6 +16,8 @@ csn_materials/
 csn_materials_ru/
 csn_materials_lv/
 solver/media/
+solver/questions.json
+solver/questions.js
 
 # Local logs and operating-system files
 *.log
