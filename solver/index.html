@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="lv" data-theme="dark">
+<html lang="ru" data-theme="dark">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>CSDD Exam Test Solver & Question Bank</title>
+  <title>Теория CSDD — вопросы категории B</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body class="mode-solver">
@@ -12,16 +12,16 @@
     <div class="header-top">
       <div class="logo-area">
         <span class="badge-csdd">CSDD B</span>
-        <h1 class="app-title">Exam Test Solver</h1>
+        <h1 class="app-title">Теория CSDD</h1>
       </div>
       <div class="header-controls">
-        <button id="collector-open-btn" class="btn btn-primary" title="Получить новые вопросы и ответы с CSDD">
-          <span>↻</span> <strong>Пополнить базу</strong>
+        <button id="mode-toggle-btn" class="btn mode-toggle-btn" title="Переключить режим" aria-label="Режим: Шпаргалка">
+          <span aria-hidden="true">🎯</span> <strong>Шпаргалка</strong>
         </button>
-        <button id="mode-toggle-btn" class="btn" title="Переключить режим шпаргалка / тренажер">
-          <span>🎯</span> <strong>Шпаргалка</strong>
+        <button id="theme-toggle-btn" class="btn icon-btn" title="Сменить тему" aria-label="Сменить тему">🌙</button>
+        <button id="collector-open-btn" class="btn btn-primary collector-open-btn" title="Пополнить базу вопросов" aria-label="Пополнить базу вопросов" hidden>
+          <span aria-hidden="true">↻</span> <strong>Пополнить базу</strong>
         </button>
-        <button id="theme-toggle-btn" class="btn" title="Сменить тему">🌙</button>
       </div>
     </div>
 
@@ -32,30 +32,43 @@
           type="text" 
           id="search-input" 
           class="search-input" 
-          placeholder="Meklēt jautājumu vai atbildi (piem. tramvajs, atļauts, autobusam, 201...)" 
+          placeholder="Найти вопрос или ответ…"
           autocomplete="off"
-          autofocus
+          aria-label="Поиск вопросов и ответов"
         >
-        <button id="clear-search-btn" class="clear-search-btn" title="Notīrīt meklēšanu">✕</button>
+        <button id="clear-search-btn" class="clear-search-btn" title="Очистить поиск" aria-label="Очистить поиск">✕</button>
       </div>
     </div>
 
     <div class="filters-bar">
       <div class="filter-tags">
-        <button class="filter-btn active" data-filter="all">Visi (Все)</button>
-        <button class="filter-btn" data-filter="images">Ar attēliem (С 3D-фото)</button>
-        <button class="filter-btn" data-filter="videos">Video (Видео)</button>
-        <button class="filter-btn" data-filter="bookmarks">⭐ Saglabātie (Избранное)</button>
+        <button class="filter-btn active" data-filter="all" aria-pressed="true">Все</button>
+        <button class="filter-btn" data-filter="images" aria-pressed="false">С изображением</button>
+        <button class="filter-btn" data-filter="videos" aria-pressed="false">Видео</button>
+        <button class="filter-btn" data-filter="bookmarks" aria-pressed="false">★ Избранное</button>
       </div>
-      <div id="stats-counter" class="stats-counter">Ielādē...</div>
+      <div id="stats-counter" class="stats-counter">Загрузка…</div>
     </div>
   </header>
 
   <main class="main-content">
     <div id="questions-container" class="questions-grid">
-      <!-- Карточки вопросов будут рендериться динамически -->
+      <!-- На компьютере карточки, на телефоне сетка 2 × 3 -->
     </div>
+    <button id="load-more-btn" class="btn load-more-btn" type="button" hidden>Показать ещё</button>
+    <nav id="questions-pagination" class="questions-pagination" aria-label="Страницы вопросов" hidden>
+      <button id="previous-page-btn" class="btn page-btn" type="button">← Назад</button>
+      <span id="page-indicator" class="page-indicator" aria-live="polite"></span>
+      <button id="next-page-btn" class="btn page-btn" type="button">Далее →</button>
+    </nav>
   </main>
+
+  <div id="question-modal" class="dialog-backdrop question-backdrop" aria-hidden="true">
+    <section class="question-dialog" role="dialog" aria-modal="true" aria-label="Вопрос и варианты ответа">
+      <button id="question-close-btn" class="dialog-close question-close" type="button" aria-label="Закрыть вопрос">✕</button>
+      <div id="question-detail"></div>
+    </section>
+  </div>
 
   <div id="collector-modal" class="dialog-backdrop" aria-hidden="true">
     <section class="collector-dialog" role="dialog" aria-modal="true" aria-labelledby="collector-title">
@@ -64,12 +77,17 @@
           <div class="dialog-kicker">Официальный тест CSDD</div>
           <h2 id="collector-title">Пополнение базы</h2>
         </div>
-        <button id="collector-close-btn" class="dialog-close" title="Закрыть">✕</button>
+        <button id="collector-close-btn" class="dialog-close" title="Закрыть" aria-label="Закрыть">✕</button>
       </div>
 
       <p class="dialog-description">
         Один проход получает 30 тестовых вопросов, затем читает правильные ответы на странице результатов CSDD.
       </p>
+
+      <div id="collector-token-field" class="collector-token-field" hidden>
+        <label for="collector-token">Ключ доступа к сборщику</label>
+        <input id="collector-token" type="password" autocomplete="off" placeholder="Введите ключ администратора">
+      </div>
 
       <div class="collector-form">
         <label for="collector-rounds">
@@ -97,10 +115,11 @@
   </div>
 
   <!-- Модальное окно Lightbox для просмотра 3D картинок на весь экран -->
-  <div id="lightbox-modal" class="lightbox-modal">
-    <div class="lightbox-content">
-      <button id="lightbox-close" class="lightbox-close" title="Aizvērt">✕</button>
-      <img id="lightbox-img" src="" alt="Attēls palielinājumā">
+  <div id="lightbox-modal" class="lightbox-modal" role="dialog" aria-modal="true" aria-label="Изображение дорожной ситуации" aria-hidden="true">
+    <button id="lightbox-zoom" class="lightbox-zoom" title="Увеличить изображение" aria-label="Увеличить изображение">＋</button>
+    <button id="lightbox-close" class="lightbox-close" title="Закрыть" aria-label="Закрыть">✕</button>
+    <div id="lightbox-content" class="lightbox-content">
+      <img id="lightbox-img" src="" alt="Дорожная ситуация крупным планом">
     </div>
   </div>
 

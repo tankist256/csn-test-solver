@@ -10,6 +10,11 @@ import requests
 from bs4 import BeautifulSoup
 import urllib3
 
+try:
+    from .thumbnails import generate_missing_thumbnails
+except ImportError:
+    from thumbnails import generate_missing_thumbnails
+
 urllib3.disable_warnings()
 
 BASE_URL = "https://csnt2.csdd.lv"
@@ -48,6 +53,7 @@ def save_database(questions):
     js_content = "window.CSDD_QUESTIONS = " + json.dumps(questions, ensure_ascii=False, indent=2) + ";\n"
     with open(DB_JS_PATH, "w", encoding="utf-8") as f:
         f.write(js_content)
+    generate_missing_thumbnails(questions)
 
 
 def question_id(question, options, img, video):

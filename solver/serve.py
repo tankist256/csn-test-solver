@@ -1,4 +1,6 @@
 import http.server
+import hmac
+import ipaddress
 import json
 import os
 import re
@@ -9,9 +11,17 @@ import sys
 import threading
 from datetime import datetime, timezone
 
-PORT = int(os.environ.get("CSN_PORT", "8080"))
+try:
+    from .thumbnails import generate_missing_thumbnails
+except ImportError:
+    from thumbnails import generate_missing_thumbnails
+
+# Azure App Service and Azure Container Apps provide the listening port through
+# PORT.  CSN_PORT remains available for local overrides.
+PORT = int(os.environ.get("PORT", os.environ.get("CSN_PORT", "8080")))
 DIRECTORY = os.path.dirname(os.path.abspath(__file__))
 COLLECTOR_PATH = os.path.join(DIRECTORY, "collector.py")
+COLLECTOR_TOKEN = os.environ.get("CSN_COLLECTOR_TOKEN", "").strip()
 
 collector_lock = threading.Lock()
 collector_state = {
@@ -35,6 +45,21 @@ def public_collector_state():
         state = dict(collector_state)
         state["log"] = list(collector_state["log"][-30:])
         return state
+
+
+def collector_authorized(client_ip, headers, supplied_token, configured_token=None):
+    if configured_token is None:
+        configured_token = COLLECTOR_TOKEN
+    if configured_token:
+        return hmac.compare_digest(supplied_token, configured_token)
+    try:
+        direct_local = ipaddress.ip_address(client_ip).is_loopback
+    except ValueError:
+        return False
+    # A reverse proxy connects from loopback, so its forwarded request is not local.
+    return direct_local and not any(
+        headers.get(name) for name in ("Forwarded", "X-Forwarded-For", "X-Real-IP")
+    )
 
 
 def run_collector(rounds):
@@ -98,11 +123,37 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         self.send_header("Content-Type", "application/json; charset=utf-8")
         self.send_header("Content-Length", str(len(body)))
         self.send_header("Cache-Control", "no-store")
+        self.send_header("X-Content-Type-Options", "nosniff")
         self.end_headers()
         self.wfile.write(body)
 
+    def can_use_collector(self):
+        return collector_authorized(
+            self.client_address[0],
+            self.headers,
+            self.headers.get("X-CSN-Collector-Token", ""),
+        )
+
+    def require_collector_access(self):
+        if self.can_use_collector():
+            return True
+        self.send_json(
+            {"error": "Неверный ключ доступа." if COLLECTOR_TOKEN else "Сбор доступен только локально."},
+            401 if COLLECTOR_TOKEN else 403,
+        )
+        return False
+
     def do_GET(self):
-        if self.path.split("?", 1)[0] == "/api/collector/status":
+        route = self.path.split("?", 1)[0]
+        if route == "/api/collector/access":
+            self.send_json({
+                "available": bool(COLLECTOR_TOKEN) or self.can_use_collector(),
+                "requires_token": bool(COLLECTOR_TOKEN),
+            })
+            return
+        if route == "/api/collector/status":
+            if not self.require_collector_access():
+                return
             self.send_json(public_collector_state())
             return
         super().do_GET()
@@ -111,11 +162,13 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         if self.path.split("?", 1)[0] != "/api/collector/start":
             self.send_json({"error": "Маршрут не найден."}, 404)
             return
+        if not self.require_collector_access():
+            return
 
         try:
             content_length = int(self.headers.get("Content-Length", "0"))
-            if content_length > 4096:
-                raise ValueError("Слишком большой запрос")
+            if not 0 <= content_length <= 4096:
+                raise ValueError("Недопустимый размер запроса")
             payload = json.loads(self.rfile.read(content_length) or b"{}")
             rounds = int(payload.get("rounds", 1))
             if not 1 <= rounds <= 50:
@@ -160,6 +213,7 @@ def get_local_ip():
 
 
 def main():
+    generate_missing_thumbnails()
     local_ip = get_local_ip()
     with ThreadingServer(("", PORT), Handler) as httpd:
         print("=" * 60)

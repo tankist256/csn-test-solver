@@ -1,0 +1,10 @@
+[Unit]
+Description=Check GitHub for CSN solver updates every two minutes
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec=2min
+Unit=csn-solver-update.service
+
+[Install]
+WantedBy=timers.target
