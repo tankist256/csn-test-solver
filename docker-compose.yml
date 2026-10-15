@@ -1,0 +1,26 @@
+services:
+  # Главный сервис: Поисковик и шпаргалка по билетам (http://localhost:8080)
+  solver:
+    build: .
+    container_name: csn-solver
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./solver:/app/solver
+    restart: unless-stopped
+
+  # Сервис фонового сбора новых вопросов из CSDD тестов
+  collector:
+    build: .
+    container_name: csn-collector
+    volumes:
+      - ./solver:/app/solver
+    command: ["python", "solver/collector.py", "--rounds", "20"]
+
+  # Парсер исходного текста правил (CSN/ПДД Латвии)
+  parser-csn:
+    build: .
+    container_name: csn-parser
+    volumes:
+      - ./csn_materials:/app/csn_materials
+    command: ["python", "parser.py", "--lang", "lv"]

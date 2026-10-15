@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="lv" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CSDD Exam Test Solver & Question Bank</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="mode-solver">
+
+  <header class="app-header">
+    <div class="header-top">
+      <div class="logo-area">
+        <span class="badge-csdd">CSDD B</span>
+        <h1 class="app-title">Exam Test Solver</h1>
+      </div>
+      <div class="header-controls">
+        <button id="mode-toggle-btn" class="btn" title="Переключить режим шпаргалка / тренажер">
+          <span>🎯</span> <strong>Шпаргалка</strong>
+        </button>
+        <button id="theme-toggle-btn" class="btn" title="Сменить тему">🌙</button>
+      </div>
+    </div>
+
+    <div class="search-box-container">
+      <div class="search-input-wrapper">
+        <span class="search-icon">🔍</span>
+        <input 
+          type="text" 
+          id="search-input" 
+          class="search-input" 
+          placeholder="Meklēt jautājumu vai atbildi (piem. tramvajs, atļauts, autobusam, 201...)" 
+          autocomplete="off"
+          autofocus
+        >
+        <button id="clear-search-btn" class="clear-search-btn" title="Notīrīt meklēšanu">✕</button>
+      </div>
+    </div>
+
+    <div class="filters-bar">
+      <div class="filter-tags">
+        <button class="filter-btn active" data-filter="all">Visi (Все)</button>
+        <button class="filter-btn" data-filter="images">Ar attēliem (С 3D-фото)</button>
+        <button class="filter-btn" data-filter="videos">Video (Видео)</button>
+        <button class="filter-btn" data-filter="bookmarks">⭐ Saglabātie (Избранное)</button>
+      </div>
+      <div id="stats-counter" class="stats-counter">Ielādē...</div>
+    </div>
+  </header>
+
+  <main class="main-content">
+    <div id="questions-container" class="questions-grid">
+      <!-- Карточки вопросов будут рендериться динамически -->
+    </div>
+  </main>
+
+  <!-- Модальное окно Lightbox для просмотра 3D картинок на весь экран -->
+  <div id="lightbox-modal" class="lightbox-modal">
+    <div class="lightbox-content">
+      <button id="lightbox-close" class="lightbox-close" title="Aizvērt">✕</button>
+      <img id="lightbox-img" src="" alt="Attēls palielinājumā">
+    </div>
+  </div>
+
+  <!-- База вопросов в формате JS для работы автономно без веб-сервера -->
+  <script src="questions.js"></script>
+  <script src="app.js"></script>
+</body>
+</html>

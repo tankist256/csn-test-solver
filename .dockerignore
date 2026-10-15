@@ -1,0 +1,7 @@
+.venv
+__pycache__
+*.pyc
+csn_materials*
+solver/media
+.git
+.gitignore
