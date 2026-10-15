@@ -27,6 +27,7 @@ let currentTheme = localStorage.getItem("csdd_theme") || "dark";
 let collectorPollTimer = null;
 let collectorWasRunning = false;
 let lazyVideoObserver = null;
+let lazyImageObserver = null;
 
 document.addEventListener("DOMContentLoaded", () => {
   // Применяем тему и режим
@@ -311,6 +312,7 @@ function renderQuestions() {
 
   if (filtered.length === 0) {
     if (lazyVideoObserver) lazyVideoObserver.disconnect();
+    if (lazyImageObserver) lazyImageObserver.disconnect();
     container.innerHTML = `
       <div class="empty-state" style="grid-column: 1 / -1;">
         <div class="empty-icon">🔍</div>
@@ -338,7 +340,7 @@ function renderQuestions() {
         mediaHtml = `
           <div class="card-media" onclick="openLightbox('${q.img}')">
             <span class="media-badge">3D Ситуация</span>
-            <img src="${q.img}" alt="Situācija" loading="lazy">
+            <img class="lazy-image" data-src="${q.img}" alt="Situācija">
           </div>
         `;
       }
@@ -387,6 +389,7 @@ function renderQuestions() {
     .join("");
 
   setupLazyVideos();
+  setupLazyImages();
 }
 
 function setupLazyVideos() {
@@ -430,6 +433,38 @@ function setupLazyVideos() {
   );
 
   videos.forEach((video) => lazyVideoObserver.observe(video));
+}
+
+function setupLazyImages() {
+  if (lazyImageObserver) lazyImageObserver.disconnect();
+
+  const images = document.querySelectorAll("img.lazy-image[data-src]");
+  if (!images.length) return;
+
+  const loadImage = (image) => {
+    const src = image.dataset.src;
+    if (!src) return;
+    image.src = src;
+    delete image.dataset.src;
+  };
+
+  if (!("IntersectionObserver" in window)) {
+    images.forEach(loadImage);
+    return;
+  }
+
+  lazyImageObserver = new IntersectionObserver(
+    (entries, observer) => {
+      entries.forEach((entry) => {
+        if (!entry.isIntersecting) return;
+        loadImage(entry.target);
+        observer.unobserve(entry.target);
+      });
+    },
+    { rootMargin: "300px 0px" },
+  );
+
+  images.forEach((image) => lazyImageObserver.observe(image));
 }
 
 function highlightMatch(text, query) {
