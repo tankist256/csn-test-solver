@@ -7,6 +7,7 @@ services:
       - "8080:8080"
     environment:
       CSN_COLLECTOR_TOKEN: ${CSN_COLLECTOR_TOKEN:-}
+      CSN_REMOTE_WORKER: ${CSN_REMOTE_WORKER:-0}
     volumes:
       - ./solver:/app/solver
     restart: unless-stopped

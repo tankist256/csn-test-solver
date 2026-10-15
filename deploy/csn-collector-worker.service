@@ -1,0 +1,14 @@
+[Unit]
+Description=CSN collector worker on the computer with CSDD access
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/tankist256/Documents/CSN
+ExecStart=/home/tankist256/Documents/CSN/.venv/bin/python /home/tankist256/Documents/CSN/deploy/collector-worker.py
+Restart=always
+RestartSec=10
+
+[Install]
+WantedBy=default.target

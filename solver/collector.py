@@ -413,6 +413,8 @@ def main():
     round_idx = 0
     total_added = 0
     connection_failed = False
+    completed_rounds = 0
+    interrupted = False
 
     try:
         while True:
@@ -457,6 +459,7 @@ def main():
                     db_map[q["id"]] = q
 
             save_database(list(db_map.values()))
+            completed_rounds += 1
             dt = time.time() - t0
             print(
                 f"[✓] Раунд {round_idx} завершен за {dt:.1f}с. Новых: {new_in_round} | Исправлено: {corrected_in_round} | Всего в базе: {len(db_map)}"
@@ -464,13 +467,14 @@ def main():
 
     except KeyboardInterrupt:
         print("\n[!] Остановлено пользователем.")
+        interrupted = True
 
     print(f"\n==========================================")
     print(f"ИТОГ: Всего уникальных вопросов в базе: {len(db_map)}")
     print(f"База сохранена в: {DB_JSON_PATH}")
     print(f"JS-модуль сохранен в: {DB_JS_PATH}")
     print(f"==========================================")
-    if connection_failed:
+    if connection_failed or interrupted or (not args.loop and completed_rounds != args.rounds):
         return 2
     return 0
 

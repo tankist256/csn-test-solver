@@ -18,6 +18,8 @@ csn_materials_lv/
 solver/media/
 solver/questions.json
 solver/questions.js
+solver/.collector-job.json
+solver/.collector-job.lock
 
 # Local logs and operating-system files
 *.log

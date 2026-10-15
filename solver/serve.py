@@ -14,8 +14,10 @@ from pathlib import Path
 
 try:
     from .thumbnails import generate_missing_thumbnails
+    from . import job_queue
 except ImportError:
     from thumbnails import generate_missing_thumbnails
+    import job_queue
 
 # Azure App Service and Azure Container Apps provide the listening port through
 # PORT.  CSN_PORT remains available for local overrides.
@@ -23,6 +25,7 @@ PORT = int(os.environ.get("PORT", os.environ.get("CSN_PORT", "8080")))
 DIRECTORY = os.path.dirname(os.path.abspath(__file__))
 COLLECTOR_PATH = os.path.join(DIRECTORY, "collector.py")
 COLLECTOR_TOKEN = os.environ.get("CSN_COLLECTOR_TOKEN", "").strip()
+REMOTE_WORKER = os.environ.get("CSN_REMOTE_WORKER", "0") == "1"
 
 collector_lock = threading.Lock()
 collector_state = {
@@ -174,12 +177,13 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             self.send_json({
                 "available": bool(COLLECTOR_TOKEN) or self.can_use_collector(),
                 "requires_token": bool(COLLECTOR_TOKEN),
+                "worker_mode": REMOTE_WORKER,
             })
             return
         if route == "/api/collector/status":
             if not self.require_collector_access():
                 return
-            self.send_json(public_collector_state())
+            self.send_json(job_queue.snapshot() if REMOTE_WORKER else public_collector_state())
             return
         super().do_GET()
 
@@ -200,6 +204,15 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 raise ValueError("Количество тестов должно быть от 1 до 50")
         except (ValueError, TypeError, json.JSONDecodeError) as error:
             self.send_json({"error": str(error)}, 400)
+            return
+
+        if REMOTE_WORKER:
+            try:
+                self.send_json(job_queue.enqueue(rounds), 202)
+            except ValueError as error:
+                self.send_json({"error": str(error)}, 409)
+            except RuntimeError as error:
+                self.send_json({"error": str(error)}, 503)
             return
 
         with collector_lock:

@@ -37,6 +37,7 @@ let currentPage = 0;
 let renderedCount = 0;
 let searchTimer = null;
 let collectorRequiresToken = false;
+let collectorWorkerMode = false;
 let lightboxTrigger = null;
 let questionTrigger = null;
 let openQuestionIndex = -1;
@@ -256,9 +257,14 @@ async function detectCollectorAccess() {
     const access = await response.json();
     if (!access.available) return;
     collectorRequiresToken = Boolean(access.requires_token);
+    collectorWorkerMode = Boolean(access.worker_mode);
     document.getElementById("collector-open-btn").hidden = false;
     document.querySelector(".header-controls").classList.add("collector-available");
     document.getElementById("collector-token-field").hidden = !collectorRequiresToken;
+    if (collectorWorkerMode) {
+      document.getElementById("collector-description").textContent =
+        "Сбор выполняется на вашем компьютере и автоматически обновляет сайт. Компьютер должен быть включён и подключён к интернету.";
+    }
     if (!collectorRequiresToken) refreshCollectorStatus();
   } catch (error) {
     console.warn("Сборщик недоступен:", error);
@@ -316,14 +322,15 @@ async function refreshCollectorStatus() {
       collectorWasRunning = false;
       await reloadQuestionDatabase();
     }
+    if (collectorWorkerMode && !state.running) scheduleCollectorPoll(5000);
   } catch (error) {
     showCollectorConnectionError(error.message);
   }
 }
 
-function scheduleCollectorPoll() {
+function scheduleCollectorPoll(delay = 1000) {
   clearTimeout(collectorPollTimer);
-  collectorPollTimer = setTimeout(refreshCollectorStatus, 1000);
+  collectorPollTimer = setTimeout(refreshCollectorStatus, delay);
 }
 
 function updateCollectorUI(state) {
@@ -340,17 +347,21 @@ function updateCollectorUI(state) {
 
   statusBox.className = `collector-status ${state.running ? "running" : state.returncode === 0 ? "success" : state.returncode ? "error" : "idle"}`;
   title.textContent = state.running
-    ? `Сбор вопросов: тест ${Math.min(completed + 1, rounds)} из ${rounds}`
+    ? state.phase === "queued"
+      ? "Ожидаю компьютер"
+      : `Сбор вопросов: тест ${Math.min(completed + 1, rounds)} из ${rounds}`
     : state.returncode === 0
       ? "База успешно обновлена"
       : state.returncode
         ? "Сбор завершился с ошибкой"
+        : collectorWorkerMode && !state.worker_online
+          ? "Компьютер не подключён"
         : "Готово к запуску";
   text.textContent = state.message || "Сборщик готов к запуску.";
   progress.style.width = `${state.running ? Math.max(percent, 3) : state.returncode === 0 ? 100 : percent}%`;
   log.textContent = Array.isArray(state.log) ? state.log.join("\n") : "";
   log.scrollTop = log.scrollHeight;
-  startBtn.disabled = Boolean(state.running);
+  startBtn.disabled = Boolean(state.running || (collectorWorkerMode && !state.worker_online));
   roundsInput.disabled = Boolean(state.running);
 }
 
