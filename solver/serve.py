@@ -84,6 +84,11 @@ def run_collector(rounds):
                 if round_match:
                     collector_state["completed_rounds"] = int(round_match.group(1))
                     collector_state["message"] = line
+                elif "CSDD недоступен из этой сети" in line:
+                    collector_state["message"] = (
+                        "CSDD не отвечает с этого сервера. "
+                        "Запустите сбор и синхронизацию с компьютера."
+                    )
                 elif "Ошибка раунда" in line:
                     collector_state["message"] = line
 
@@ -103,7 +108,8 @@ def run_collector(rounds):
                 )
             else:
                 collector_state["returncode"] = returncode
-                collector_state["message"] = f"Сборщик завершился с кодом {returncode}."
+                if not any("CSDD недоступен из этой сети" in line for line in collector_state["log"]):
+                    collector_state["message"] = f"Сборщик завершился с кодом {returncode}."
     except Exception as error:
         with collector_lock:
             collector_state["running"] = False

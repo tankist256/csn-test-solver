@@ -30,6 +30,16 @@ headers = {
     )
 }
 
+CSN_REQUEST_TIMEOUT = (8, 30)
+
+
+class TimedSession(requests.Session):
+    """Bound every CSDD request so an unreachable host cannot hang a batch."""
+
+    def request(self, method, url, **kwargs):
+        kwargs.setdefault("timeout", CSN_REQUEST_TIMEOUT)
+        return super().request(method, url, **kwargs)
+
 
 def ensure_dirs():
     os.makedirs(MEDIA_DIR, exist_ok=True)
@@ -397,11 +407,12 @@ def main():
         db_map[question["id"]] = question
     print(f"[*] Загружена текущая база: {len(db_map)} уникальных вопросов.")
 
-    session = requests.Session()
+    session = TimedSession()
     session.headers.update(headers)
 
     round_idx = 0
     total_added = 0
+    connection_failed = False
 
     try:
         while True:
@@ -413,6 +424,13 @@ def main():
             t0 = time.time()
             try:
                 round_questions = run_single_session(session)
+            except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as error:
+                print(
+                    "[!] CSDD недоступен из этой сети. Сбор остановлен; "
+                    f"уже сохранённая база не удалена. Подробности: {error}"
+                )
+                connection_failed = True
+                break
             except Exception as e:
                 print(f"[!] Ошибка раунда: {e}, пауза 3 сек...")
                 time.sleep(3)
@@ -452,7 +470,10 @@ def main():
     print(f"База сохранена в: {DB_JSON_PATH}")
     print(f"JS-модуль сохранен в: {DB_JS_PATH}")
     print(f"==========================================")
+    if connection_failed:
+        return 2
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    sys.exit(main())
