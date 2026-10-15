@@ -57,6 +57,18 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 function initApp() {
+  // Preserve saved questions across the media-aware ID migration.
+  let bookmarksChanged = false;
+  allQuestions.forEach((q) => {
+    if (q.legacy_id && bookmarks.has(q.legacy_id)) {
+      bookmarks.delete(q.legacy_id);
+      bookmarks.add(q.id);
+      bookmarksChanged = true;
+    }
+  });
+  if (bookmarksChanged) {
+    localStorage.setItem("csdd_bookmarks", JSON.stringify(Array.from(bookmarks)));
+  }
   setupEventListeners();
   renderQuestions();
 }

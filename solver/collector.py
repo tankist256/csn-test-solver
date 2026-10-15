@@ -58,6 +58,13 @@ def question_id(question, options, img, video):
     return hashlib.md5(key_raw.encode("utf-8")).hexdigest()[:12]
 
 
+def legacy_question_id(question, options):
+    """ID used by the previous database format, also used by saved bookmarks."""
+    option_texts = "|".join(sorted(option["text"] for option in options))
+    key_raw = f"{question}||{option_texts}"
+    return hashlib.md5(key_raw.encode("utf-8")).hexdigest()[:12]
+
+
 def download_media(session, url):
     if not url:
         return ""
@@ -365,12 +372,17 @@ def main():
         # Legacy IDs ignored the image/video, merging different road scenes.
         # Re-key by media and require an official re-encounter before showing
         # a legacy answer as confirmed.
+        legacy_id = question.get("legacy_id") or legacy_question_id(
+            question.get("question", ""), question.get("options", [])
+        )
         question["id"] = question_id(
             question.get("question", ""),
             question.get("options", []),
             question.get("img", ""),
             question.get("video", ""),
         )
+        if legacy_id and legacy_id != question["id"]:
+            question.setdefault("legacy_id", legacy_id)
         question["verified"] = question.get("verified") is True
         prior = db_map.get(question["id"])
         if prior and prior.get("correct_text") != question.get("correct_text"):
@@ -409,11 +421,15 @@ def main():
                     total_added += 1
                 elif db_map[q["id"]].get("correct_text") != q.get("correct_text"):
                     old_answer = db_map[q["id"]].get("correct_text", "?")
+                    if db_map[q["id"]].get("legacy_id"):
+                        q["legacy_id"] = db_map[q["id"]]["legacy_id"]
                     db_map[q["id"]] = q
                     corrected_in_round += 1
                     print(f"[!] Исправлен ответ: {q['question']} | было: {old_answer} | стало: {q['correct_text']}")
                 else:
                     # Refresh option IDs and media URLs even when the answer text is unchanged.
+                    if db_map[q["id"]].get("legacy_id"):
+                        q["legacy_id"] = db_map[q["id"]]["legacy_id"]
                     db_map[q["id"]] = q
 
             save_database(list(db_map.values()))
