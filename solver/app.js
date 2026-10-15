@@ -26,6 +26,7 @@ let currentMode = localStorage.getItem("csdd_mode") || "solver"; // "solver" or 
 let currentTheme = localStorage.getItem("csdd_theme") || "dark";
 let collectorPollTimer = null;
 let collectorWasRunning = false;
+let lazyVideoObserver = null;
 
 document.addEventListener("DOMContentLoaded", () => {
   // Применяем тему и режим
@@ -309,6 +310,7 @@ function renderQuestions() {
   statsElem.textContent = `Показано: ${filtered.length} из ${allQuestions.length}`;
 
   if (filtered.length === 0) {
+    if (lazyVideoObserver) lazyVideoObserver.disconnect();
     container.innerHTML = `
       <div class="empty-state" style="grid-column: 1 / -1;">
         <div class="empty-icon">🔍</div>
@@ -329,9 +331,7 @@ function renderQuestions() {
         mediaHtml = `
           <div class="card-media">
             <span class="media-badge">🎥 Видео</span>
-            <video controls preload="metadata" muted>
-              <source src="${q.video}" type="video/mp4">
-            </video>
+            <video class="lazy-video" controls preload="none" muted data-src="${q.video}"></video>
           </div>
         `;
       } else if (q.img) {
@@ -385,6 +385,51 @@ function renderQuestions() {
       `;
     })
     .join("");
+
+  setupLazyVideos();
+}
+
+function setupLazyVideos() {
+  if (lazyVideoObserver) lazyVideoObserver.disconnect();
+
+  const videos = document.querySelectorAll("video.lazy-video[data-src]");
+  if (!videos.length) return;
+
+  const loadVideo = (video) => {
+    const src = video.dataset.src;
+    if (!src) return;
+
+    const source = document.createElement("source");
+    source.src = src;
+    source.type = "video/mp4";
+    video.append(source);
+    delete video.dataset.src;
+    video.load();
+  };
+
+  // The browser used to request metadata for every rendered video card at once.
+  // Load only videos close to the viewport; tapping one also starts it immediately.
+  videos.forEach((video) => {
+    video.addEventListener("pointerdown", () => loadVideo(video), { once: true });
+  });
+
+  if (!("IntersectionObserver" in window)) {
+    videos.forEach(loadVideo);
+    return;
+  }
+
+  lazyVideoObserver = new IntersectionObserver(
+    (entries, observer) => {
+      entries.forEach((entry) => {
+        if (!entry.isIntersecting) return;
+        loadVideo(entry.target);
+        observer.unobserve(entry.target);
+      });
+    },
+    { rootMargin: "300px 0px" },
+  );
+
+  videos.forEach((video) => lazyVideoObserver.observe(video));
 }
 
 function highlightMatch(text, query) {
