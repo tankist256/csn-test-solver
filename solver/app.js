@@ -24,6 +24,8 @@ let bookmarks = new Set(JSON.parse(localStorage.getItem("csdd_bookmarks") || "[]
 let currentFilter = "all";
 let currentMode = localStorage.getItem("csdd_mode") || "solver"; // "solver" or "quiz"
 let currentTheme = localStorage.getItem("csdd_theme") || "dark";
+let collectorPollTimer = null;
+let collectorWasRunning = false;
 
 document.addEventListener("DOMContentLoaded", () => {
   // Применяем тему и режим
@@ -57,6 +59,13 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 function initApp() {
+  migrateBookmarks();
+  setupEventListeners();
+  setupCollectorControls();
+  renderQuestions();
+}
+
+function migrateBookmarks() {
   // Preserve saved questions across the media-aware ID migration.
   let bookmarksChanged = false;
   allQuestions.forEach((q) => {
@@ -69,8 +78,6 @@ function initApp() {
   if (bookmarksChanged) {
     localStorage.setItem("csdd_bookmarks", JSON.stringify(Array.from(bookmarks)));
   }
-  setupEventListeners();
-  renderQuestions();
 }
 
 function setupEventListeners() {
@@ -124,6 +131,142 @@ function setupEventListeners() {
   lightbox.addEventListener("click", (e) => {
     if (e.target === lightbox) lightbox.classList.remove("active");
   });
+}
+
+function setupCollectorControls() {
+  const modal = document.getElementById("collector-modal");
+  const openBtn = document.getElementById("collector-open-btn");
+  const closeBtn = document.getElementById("collector-close-btn");
+  const startBtn = document.getElementById("collector-start-btn");
+
+  const openModal = () => {
+    modal.classList.add("active");
+    modal.setAttribute("aria-hidden", "false");
+    refreshCollectorStatus();
+  };
+  const closeModal = () => {
+    modal.classList.remove("active");
+    modal.setAttribute("aria-hidden", "true");
+  };
+
+  openBtn.addEventListener("click", openModal);
+  closeBtn.addEventListener("click", closeModal);
+  modal.addEventListener("click", (event) => {
+    if (event.target === modal) closeModal();
+  });
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape" && modal.classList.contains("active")) closeModal();
+  });
+  startBtn.addEventListener("click", startCollector);
+
+  refreshCollectorStatus();
+}
+
+async function startCollector() {
+  const input = document.getElementById("collector-rounds");
+  const rounds = Math.max(1, Math.min(50, Number.parseInt(input.value, 10) || 1));
+  input.value = rounds;
+  setCollectorPending(`Запускаю ${rounds} тест(ов)…`);
+
+  try {
+    const response = await fetch("/api/collector/start", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ rounds }),
+    });
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error || "Не удалось запустить сбор.");
+    collectorWasRunning = true;
+    updateCollectorUI(data);
+    scheduleCollectorPoll();
+  } catch (error) {
+    showCollectorConnectionError(error.message);
+  }
+}
+
+async function refreshCollectorStatus() {
+  if (location.protocol === "file:") {
+    showCollectorConnectionError("Запустите программу через serve.py и откройте http://localhost:8080.");
+    return;
+  }
+  try {
+    const response = await fetch("/api/collector/status", { cache: "no-store" });
+    if (!response.ok) throw new Error("API сборщика недоступен.");
+    const state = await response.json();
+    updateCollectorUI(state);
+    if (state.running) {
+      collectorWasRunning = true;
+      scheduleCollectorPoll();
+    } else if (collectorWasRunning) {
+      collectorWasRunning = false;
+      await reloadQuestionDatabase();
+    }
+  } catch (error) {
+    showCollectorConnectionError(error.message);
+  }
+}
+
+function scheduleCollectorPoll() {
+  clearTimeout(collectorPollTimer);
+  collectorPollTimer = setTimeout(refreshCollectorStatus, 1000);
+}
+
+function updateCollectorUI(state) {
+  const statusBox = document.getElementById("collector-status");
+  const title = document.getElementById("collector-status-title");
+  const text = document.getElementById("collector-status-text");
+  const progress = document.getElementById("collector-progress");
+  const log = document.getElementById("collector-log");
+  const startBtn = document.getElementById("collector-start-btn");
+  const roundsInput = document.getElementById("collector-rounds");
+  const completed = Number(state.completed_rounds) || 0;
+  const rounds = Number(state.rounds) || 0;
+  const percent = rounds ? Math.round((completed / rounds) * 100) : 0;
+
+  statusBox.className = `collector-status ${state.running ? "running" : state.returncode === 0 ? "success" : state.returncode ? "error" : "idle"}`;
+  title.textContent = state.running
+    ? `Сбор вопросов: тест ${Math.min(completed + 1, rounds)} из ${rounds}`
+    : state.returncode === 0
+      ? "База успешно обновлена"
+      : state.returncode
+        ? "Сбор завершился с ошибкой"
+        : "Готово к запуску";
+  text.textContent = state.message || "Сборщик готов к запуску.";
+  progress.style.width = `${state.running ? Math.max(percent, 3) : state.returncode === 0 ? 100 : percent}%`;
+  log.textContent = Array.isArray(state.log) ? state.log.join("\n") : "";
+  log.scrollTop = log.scrollHeight;
+  startBtn.disabled = Boolean(state.running);
+  roundsInput.disabled = Boolean(state.running);
+}
+
+function setCollectorPending(message) {
+  const statusBox = document.getElementById("collector-status");
+  statusBox.className = "collector-status running";
+  document.getElementById("collector-status-title").textContent = "Подключение к сборщику";
+  document.getElementById("collector-status-text").textContent = message;
+  document.getElementById("collector-start-btn").disabled = true;
+}
+
+function showCollectorConnectionError(message) {
+  const statusBox = document.getElementById("collector-status");
+  statusBox.className = "collector-status error";
+  document.getElementById("collector-status-title").textContent = "Сборщик недоступен";
+  document.getElementById("collector-status-text").textContent = message;
+  document.getElementById("collector-start-btn").disabled = location.protocol === "file:";
+  document.getElementById("collector-progress").style.width = "0";
+}
+
+async function reloadQuestionDatabase() {
+  try {
+    const response = await fetch(`questions.json?t=${Date.now()}`, { cache: "no-store" });
+    if (!response.ok) throw new Error("Не удалось загрузить обновлённую базу.");
+    allQuestions = await response.json();
+    window.CSDD_QUESTIONS = allQuestions;
+    migrateBookmarks();
+    renderQuestions();
+  } catch (error) {
+    document.getElementById("collector-status-text").textContent = `${error.message} Обновите страницу вручную.`;
+  }
 }
 
 function updateModeBtnUI() {

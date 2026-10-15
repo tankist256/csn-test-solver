@@ -111,6 +111,22 @@ body {
   background-color: var(--border-color);
 }
 
+.btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.btn-primary {
+  background-color: var(--accent-color);
+  border-color: var(--accent-color);
+  color: #fff;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background-color: var(--accent-hover);
+  border-color: var(--accent-hover);
+}
+
 .btn.active {
   background-color: var(--accent-color);
   border-color: var(--accent-hover);
@@ -174,6 +190,179 @@ body {
   margin-top: 12px;
   flex-wrap: wrap;
   gap: 10px;
+}
+
+.dialog-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(2, 6, 23, 0.76);
+  backdrop-filter: blur(6px);
+}
+
+.dialog-backdrop.active {
+  display: flex;
+}
+
+.collector-dialog {
+  width: min(560px, 100%);
+  max-height: calc(100vh - 40px);
+  overflow: auto;
+  padding: 24px;
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  background: var(--surface-color);
+  box-shadow: 0 24px 70px rgba(0, 0, 0, 0.42);
+}
+
+.dialog-header,
+.status-line,
+.rounds-control {
+  display: flex;
+  align-items: center;
+}
+
+.dialog-header {
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.dialog-header h2 {
+  font-size: 1.35rem;
+}
+
+.dialog-kicker {
+  margin-bottom: 2px;
+  color: var(--accent-color);
+  font-size: 0.72rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.dialog-close {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  border: 1px solid var(--border-color);
+  border-radius: 9px;
+  background: var(--surface-hover);
+  color: var(--text-main);
+  cursor: pointer;
+}
+
+.dialog-description {
+  margin: 14px 0 20px;
+  color: var(--text-muted);
+  font-size: 0.92rem;
+}
+
+.collector-form label {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.collector-form label small {
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.rounds-control {
+  gap: 10px;
+}
+
+#collector-rounds {
+  width: 96px;
+  padding: 10px 12px;
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  outline: none;
+  background: var(--bg-color);
+  color: var(--text-main);
+  font: inherit;
+  font-weight: 700;
+}
+
+#collector-rounds:focus {
+  border-color: var(--accent-color);
+}
+
+.collector-start-btn {
+  flex: 1;
+  justify-content: center;
+}
+
+.collector-status {
+  margin-top: 20px;
+  padding: 14px;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  background: var(--bg-color);
+}
+
+.status-line {
+  gap: 9px;
+}
+
+.status-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  background: var(--text-muted);
+}
+
+.collector-status.running .status-dot {
+  background: #f59e0b;
+  box-shadow: 0 0 0 5px rgba(245, 158, 11, 0.14);
+  animation: status-pulse 1.2s infinite;
+}
+
+.collector-status.success .status-dot { background: var(--correct-border); }
+.collector-status.error .status-dot { background: var(--wrong-border); }
+
+.status-text {
+  margin-top: 7px;
+  color: var(--text-muted);
+  font-size: 0.84rem;
+}
+
+.progress-track {
+  height: 5px;
+  margin-top: 12px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: var(--surface-hover);
+}
+
+.progress-bar {
+  width: 0;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent-color);
+  transition: width 0.35s ease;
+}
+
+.collector-log {
+  max-height: 150px;
+  margin-top: 12px;
+  overflow: auto;
+  white-space: pre-wrap;
+  color: var(--text-muted);
+  font: 0.74rem/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+.collector-log:empty { display: none; }
+
+@keyframes status-pulse {
+  50% { opacity: 0.45; }
 }
 
 .filter-tags {
@@ -475,6 +664,17 @@ body.mode-quiz .option-item.revealed-correct {
   }
   .header-controls {
     width: 100%;
-    justify-content: space-between;
+    flex-wrap: wrap;
+  }
+  .header-controls .btn {
+    flex: 1;
+    justify-content: center;
+  }
+  .rounds-control {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  #collector-rounds {
+    width: 100%;
   }
 }

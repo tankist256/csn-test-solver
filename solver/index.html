@@ -15,6 +15,9 @@
         <h1 class="app-title">Exam Test Solver</h1>
       </div>
       <div class="header-controls">
+        <button id="collector-open-btn" class="btn btn-primary" title="Получить новые вопросы и ответы с CSDD">
+          <span>↻</span> <strong>Пополнить базу</strong>
+        </button>
         <button id="mode-toggle-btn" class="btn" title="Переключить режим шпаргалка / тренажер">
           <span>🎯</span> <strong>Шпаргалка</strong>
         </button>
@@ -53,6 +56,45 @@
       <!-- Карточки вопросов будут рендериться динамически -->
     </div>
   </main>
+
+  <div id="collector-modal" class="dialog-backdrop" aria-hidden="true">
+    <section class="collector-dialog" role="dialog" aria-modal="true" aria-labelledby="collector-title">
+      <div class="dialog-header">
+        <div>
+          <div class="dialog-kicker">Официальный тест CSDD</div>
+          <h2 id="collector-title">Пополнение базы</h2>
+        </div>
+        <button id="collector-close-btn" class="dialog-close" title="Закрыть">✕</button>
+      </div>
+
+      <p class="dialog-description">
+        Один проход получает 30 тестовых вопросов, затем читает правильные ответы на странице результатов CSDD.
+      </p>
+
+      <div class="collector-form">
+        <label for="collector-rounds">
+          Количество тестов
+          <small>Обычно достаточно 1–5</small>
+        </label>
+        <div class="rounds-control">
+          <input id="collector-rounds" type="number" min="1" max="50" value="1" inputmode="numeric">
+          <button id="collector-start-btn" class="btn btn-primary collector-start-btn">
+            <span>▶</span> Запустить сбор
+          </button>
+        </div>
+      </div>
+
+      <div id="collector-status" class="collector-status idle">
+        <div class="status-line">
+          <span id="collector-status-dot" class="status-dot"></span>
+          <strong id="collector-status-title">Готово к запуску</strong>
+        </div>
+        <div id="collector-status-text" class="status-text">Сервер проверит доступность сборщика.</div>
+        <div class="progress-track" aria-hidden="true"><div id="collector-progress" class="progress-bar"></div></div>
+        <pre id="collector-log" class="collector-log" aria-live="polite"></pre>
+      </div>
+    </section>
+  </div>
 
   <!-- Модальное окно Lightbox для просмотра 3D картинок на весь экран -->
   <div id="lightbox-modal" class="lightbox-modal">
