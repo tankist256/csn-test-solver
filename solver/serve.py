@@ -10,6 +10,7 @@ import subprocess
 import sys
 import threading
 from datetime import datetime, timezone
+from pathlib import Path
 
 try:
     from .thumbnails import generate_missing_thumbnails
@@ -122,6 +123,24 @@ def run_collector(rounds):
 class Handler(http.server.SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=DIRECTORY, **kwargs)
+
+    def send_head(self):
+        """Serve site assets, but never expose server code or hidden files."""
+        root = Path(DIRECTORY).resolve()
+        path = Path(self.translate_path(self.path)).resolve()
+        if not path.is_relative_to(root):
+            self.send_error(404)
+            return None
+        relative = path.relative_to(root)
+        if (any(part.startswith(".") or part == "__pycache__" for part in relative.parts)
+                or path.suffix.lower() in {".py", ".pyc", ".pyo"}):
+            self.send_error(404)
+            return None
+        return super().send_head()
+
+    def list_directory(self, path):
+        self.send_error(404, "Directory listing disabled")
+        return None
 
     def send_json(self, payload, status=200):
         body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
