@@ -18,7 +18,9 @@ if [[ -n "$(git status --porcelain --untracked-files=no)" ]]; then
   exit 1
 fi
 
-git fetch --quiet origin main
+# Do not leave the two-minute update timer blocked indefinitely by a stalled network.
+timeout --signal=TERM --kill-after=10s 90s \
+  git -c http.lowSpeedLimit=1024 -c http.lowSpeedTime=30 fetch --quiet origin main
 previous=$(git rev-parse HEAD)
 target=$(git rev-parse FETCH_HEAD)
 [[ "$previous" == "$target" ]] && exit 0
