@@ -28,6 +28,11 @@ ssh_args=(ssh -F /dev/null -i "$SSH_KEY" -o BatchMode=yes
 printf -v rsync_ssh '%q ' "${ssh_args[@]}"
 
 cd "$ROOT_DIR"
+exec 9>"$ROOT_DIR/.collector-sync.lock"
+if ! flock -n 9; then
+  echo "Another collection or sync is already running on this computer." >&2
+  exit 1
+fi
 "${ssh_args[@]}" "$REMOTE" "test -d '$REMOTE_DIR/solver/media' && test -f '$REMOTE_DIR/deploy/apply-data-sync.py'"
 
 if [[ "$mode" != --sync-only ]]; then

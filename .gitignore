@@ -20,6 +20,7 @@ solver/questions.json
 solver/questions.js
 solver/.collector-job.json
 solver/.collector-job.lock
+.collector-sync.lock
 
 # Local logs and operating-system files
 *.log
