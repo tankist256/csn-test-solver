@@ -379,6 +379,16 @@ body.question-open { overflow: hidden; }
   transition: width 0.35s ease;
 }
 
+.collector-log-details {
+  margin-top: 12px;
+}
+
+.collector-log-details summary {
+  cursor: pointer;
+  color: var(--text-muted);
+  font-size: 0.84rem;
+}
+
 .collector-log {
   max-height: 150px;
   margin-top: 12px;

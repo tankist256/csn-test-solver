@@ -109,7 +109,11 @@
         </div>
         <div id="collector-status-text" class="status-text">Сервер проверит доступность сборщика.</div>
         <div class="progress-track" aria-hidden="true"><div id="collector-progress" class="progress-bar"></div></div>
-        <pre id="collector-log" class="collector-log" aria-live="polite"></pre>
+        <details id="collector-log-details" class="collector-log-details" hidden>
+          <summary id="collector-log-summary">Журнал сбора</summary>
+          <div id="collector-log-result" class="status-text"></div>
+          <pre id="collector-log" class="collector-log" aria-live="polite"></pre>
+        </details>
       </div>
     </section>
   </div>

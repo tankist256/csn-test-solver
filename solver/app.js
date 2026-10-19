@@ -31,6 +31,8 @@ let currentMode = localStorage.getItem("csdd_mode") || "solver"; // "solver" or 
 let currentTheme = localStorage.getItem("csdd_theme") || "dark";
 let collectorPollTimer = null;
 let collectorWasRunning = false;
+let collectorRequestVersion = 0;
+let collectorStartPending = false;
 let lazyImageObserver = null;
 let filteredQuestions = [];
 let currentPage = 0;
@@ -281,6 +283,7 @@ function collectorHeaders(includeContentType = false) {
 }
 
 async function startCollector() {
+  if (collectorStartPending) return;
   if (collectorRequiresToken && !document.getElementById("collector-token").value.trim()) {
     showCollectorConnectionError("Введите ключ доступа к сборщику.");
     document.getElementById("collector-token").focus();
@@ -289,6 +292,10 @@ async function startCollector() {
   const input = document.getElementById("collector-rounds");
   const rounds = Math.max(1, Math.min(50, Number.parseInt(input.value, 10) || 1));
   input.value = rounds;
+  collectorStartPending = true;
+  // Discard status requests started by the token field before this new run.
+  ++collectorRequestVersion;
+  clearTimeout(collectorPollTimer);
   setCollectorPending(`Запускаю ${rounds} тест(ов)…`);
 
   try {
@@ -304,16 +311,20 @@ async function startCollector() {
     scheduleCollectorPoll();
   } catch (error) {
     showCollectorConnectionError(error.message);
+  } finally {
+    collectorStartPending = false;
   }
 }
 
 async function refreshCollectorStatus() {
-  if (location.protocol === "file:" || (collectorRequiresToken && !document.getElementById("collector-token").value.trim())) return;
+  if (collectorStartPending || location.protocol === "file:" || (collectorRequiresToken && !document.getElementById("collector-token").value.trim())) return;
+  const requestVersion = ++collectorRequestVersion;
   try {
     const response = await fetch("/api/collector/status", { cache: "no-store", headers: collectorHeaders() });
     if (response.status === 401) throw new Error("Неверный ключ доступа.");
     if (!response.ok) throw new Error("Сборщик недоступен.");
     const state = await response.json();
+    if (requestVersion !== collectorRequestVersion) return;
     updateCollectorUI(state);
     if (state.running) {
       collectorWasRunning = true;
@@ -324,6 +335,7 @@ async function refreshCollectorStatus() {
     }
     if (collectorWorkerMode && !state.running) scheduleCollectorPoll(5000);
   } catch (error) {
+    if (requestVersion !== collectorRequestVersion) return;
     showCollectorConnectionError(error.message);
   }
 }
@@ -339,27 +351,51 @@ function updateCollectorUI(state) {
   const text = document.getElementById("collector-status-text");
   const progress = document.getElementById("collector-progress");
   const log = document.getElementById("collector-log");
+  const logDetails = document.getElementById("collector-log-details");
+  const logSummary = document.getElementById("collector-log-summary");
+  const logResult = document.getElementById("collector-log-result");
   const startBtn = document.getElementById("collector-start-btn");
   const roundsInput = document.getElementById("collector-rounds");
   const completed = Number(state.completed_rounds) || 0;
   const rounds = Number(state.rounds) || 0;
   const percent = rounds ? Math.round((completed / rounds) * 100) : 0;
+  const offline = collectorWorkerMode && !state.worker_online && !state.running;
+  const previousRun = !state.running && !collectorWasRunning;
 
-  statusBox.className = `collector-status ${state.running ? "running" : state.returncode === 0 ? "success" : state.returncode ? "error" : "idle"}`;
-  title.textContent = state.running
+  statusBox.className = `collector-status ${offline ? "error" : state.running ? "running" : previousRun ? "idle" : state.returncode === 0 ? "success" : state.returncode ? "error" : "idle"}`;
+  title.textContent = offline
+    ? "Нет связи с компьютером"
+    : state.running
     ? state.phase === "queued"
       ? "Ожидаю компьютер"
       : `Сбор вопросов: тест ${Math.min(completed + 1, rounds)} из ${rounds}`
+    : previousRun
+      ? "Готово к запуску"
     : state.returncode === 0
       ? "База успешно обновлена"
       : state.returncode
         ? "Сбор завершился с ошибкой"
-        : collectorWorkerMode && !state.worker_online
-          ? "Компьютер не подключён"
         : "Готово к запуску";
-  text.textContent = state.message || "Сборщик готов к запуску.";
-  progress.style.width = `${state.running ? Math.max(percent, 3) : state.returncode === 0 ? 100 : percent}%`;
+  text.textContent = offline
+    ? "Сайт не получает сигнал от сборщика на компьютере. Проверьте, что помощник запущен и может подключиться к серверу. Новый сбор пока недоступен."
+    : previousRun
+      ? "Нажмите «Запустить сбор», чтобы пополнить базу. Результат прошлого запуска доступен в журнале ниже."
+      : state.message || "Сборщик готов к запуску.";
+  progress.style.width = `${offline || previousRun ? 0 : state.running ? Math.max(percent, 3) : state.returncode === 0 ? 100 : percent}%`;
   log.textContent = Array.isArray(state.log) ? state.log.join("\n") : "";
+  const finished = state.finished_at ? new Date(state.finished_at) : null;
+  const finishedLabel = finished && !Number.isNaN(finished.getTime())
+    ? ` · ${finished.toLocaleString("ru-RU")}` : "";
+  logSummary.textContent = state.running
+    ? "Журнал текущего сбора"
+    : `${previousRun || offline ? "Предыдущий сбор" : "Журнал завершённого сбора"}${finishedLabel}`;
+  logResult.textContent = !state.running && state.returncode != null ? state.message || "" : "";
+  logDetails.hidden = !log.textContent && !logResult.textContent;
+  const logView = `${state.started_at || ""}:${state.running ? "running" : previousRun || offline ? "history" : "finished"}`;
+  if (logDetails.dataset.view !== logView) {
+    logDetails.open = Boolean(state.running || (!previousRun && !offline));
+    logDetails.dataset.view = logView;
+  }
   log.scrollTop = log.scrollHeight;
   startBtn.disabled = Boolean(state.running || (collectorWorkerMode && !state.worker_online));
   roundsInput.disabled = Boolean(state.running);
@@ -371,6 +407,10 @@ function setCollectorPending(message) {
   document.getElementById("collector-status-title").textContent = "Подключение к сборщику";
   document.getElementById("collector-status-text").textContent = message;
   document.getElementById("collector-start-btn").disabled = true;
+  document.getElementById("collector-rounds").disabled = true;
+  document.getElementById("collector-progress").style.width = "0%";
+  document.getElementById("collector-log-details").hidden = true;
+  document.getElementById("collector-log-details").dataset.view = "";
 }
 
 function showCollectorConnectionError(message) {
@@ -379,7 +419,9 @@ function showCollectorConnectionError(message) {
   document.getElementById("collector-status-title").textContent = "Сборщик недоступен";
   document.getElementById("collector-status-text").textContent = message;
   document.getElementById("collector-start-btn").disabled = location.protocol === "file:";
+  document.getElementById("collector-rounds").disabled = false;
   document.getElementById("collector-progress").style.width = "0";
+  document.getElementById("collector-log-details").hidden = true;
 }
 
 async function reloadQuestionDatabase() {
