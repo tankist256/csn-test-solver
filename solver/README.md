@@ -6,6 +6,13 @@ A local question bank and study tool for CSDD / CredoAutoprieks category B theor
 
 ## Quick start
 
+Build the React website once before using either option:
+
+```bash
+npm install
+npm run build
+```
+
 ### Option 1: Open the page directly
 
 Open [`index.html`](index.html) in a browser such as Chrome, Firefox, or Safari. This works with a question bank that is already saved on your computer.

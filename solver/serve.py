@@ -23,6 +23,7 @@ except ImportError:
 # PORT.  CSN_PORT remains available for local overrides.
 PORT = int(os.environ.get("PORT", os.environ.get("CSN_PORT", "8080")))
 DIRECTORY = os.path.dirname(os.path.abspath(__file__))
+BUILD_DIRECTORY = os.environ.get("CSN_FRONTEND_BUILD_DIR", os.path.join(DIRECTORY, "dist"))
 COLLECTOR_PATH = os.path.join(DIRECTORY, "collector.py")
 COLLECTOR_TOKEN = os.environ.get("CSN_COLLECTOR_TOKEN", "").strip()
 REMOTE_WORKER = os.environ.get("CSN_REMOTE_WORKER", "0") == "1"
@@ -127,11 +128,24 @@ class Handler(http.server.SimpleHTTPRequestHandler):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, directory=DIRECTORY, **kwargs)
 
+    def translate_path(self, path):
+        """Serve built React files while keeping question data at the solver root."""
+        route = path.split("?", 1)[0]
+        build_root = Path(BUILD_DIRECTORY).resolve()
+        if route in ("/", "/index.html") and (build_root / "index.html").is_file():
+            return str(build_root / "index.html")
+        if route.startswith("/assets/"):
+            candidate = (build_root / route.lstrip("/")).resolve()
+            if candidate.is_relative_to(build_root):
+                return str(candidate)
+        return super().translate_path(path)
+
     def send_head(self):
         """Serve site assets, but never expose server code or hidden files."""
-        root = Path(DIRECTORY).resolve()
+        roots = (Path(DIRECTORY).resolve(), Path(BUILD_DIRECTORY).resolve())
         path = Path(self.translate_path(self.path)).resolve()
-        if not path.is_relative_to(root):
+        root = next((allowed for allowed in roots if path.is_relative_to(allowed)), None)
+        if root is None:
             self.send_error(404)
             return None
         relative = path.relative_to(root)

@@ -30,3 +30,7 @@ Thumbs.db
 # Editor settings
 .vscode/
 .idea/
+
+# Frontend dependencies and generated bundles
+node_modules/
+solver/dist/

@@ -19,10 +19,13 @@ An answer is marked as correct only after it is checked against the official CSD
 ## Quick start
 
 You need Python 3.10 or later. Internet access is needed to collect questions.
+The website also needs Node.js 20 or later to build its React files.
 
 ```bash
 git clone git@github.com:tankist256/csn-test-solver.git
 cd csn-test-solver
+npm install
+npm run build
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
 .venv/bin/python solver/serve.py
@@ -32,7 +35,7 @@ Open [http://localhost:8080](http://localhost:8080) in a browser.
 
 To open the site on a phone on the same Wi-Fi network, use `http://<computer-IP>:8080`. The server prints the computer's address in the terminal.
 
-You can also open `solver/index.html` directly. This lets you view the question bank already on your computer, but the site cannot start the Python collector without the server.
+You can also open `solver/index.html` directly after building the website. This lets you view the question bank already on your computer, but the site cannot start the Python collector without the server.
 
 ## Collect questions
 
@@ -91,7 +94,8 @@ These paths are listed in `.gitignore` to help prevent generated data from being
 | Path | Purpose |
 | --- | --- |
 | `solver/index.html` | Website page |
-| `solver/app.js` and `solver/style.css` | Website behavior and appearance |
+| `solver/src/` and `solver/style.css` | React website and appearance |
+| `package.json` | Frontend tools and build command |
 | `solver/serve.py` | Local web server and collection API |
 | `solver/collector.py` | Collects questions, answers, and media from CSDD |
 | `solver/questions.json` | Local question bank created by the collector |
