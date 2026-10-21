@@ -7,6 +7,7 @@
     "build": "vite build && node scripts/fix-built-html.js && vite build --config vite.standalone.config.js"
   },
   "dependencies": {
+    "@azure/msal-browser": "^5.26.0",
     "react": "^19.1.0",
     "react-dom": "^19.1.0"
   },

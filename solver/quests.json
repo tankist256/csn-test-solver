@@ -1,0 +1,5 @@
+[
+  {"id": "exam-30", "title": "30 jautājumu pārbaudījums", "description": "Atbildi pareizi vismaz uz 24 no 30 jautājumiem vienā testā.", "size": 30, "min_correct": 24, "reward": 30},
+  {"id": "exam-60", "title": "60 jautājumu pārbaudījums", "description": "Atbildi pareizi vismaz uz 48 no 60 jautājumiem vienā testā.", "size": 60, "min_correct": 48, "reward": 60},
+  {"id": "exam-120", "title": "120 jautājumu pārbaudījums", "description": "Atbildi pareizi vismaz uz 96 no 120 jautājumiem vienā testā.", "size": 120, "min_correct": 96, "reward": 120}
+]

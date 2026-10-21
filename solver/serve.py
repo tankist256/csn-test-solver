@@ -14,10 +14,11 @@ from pathlib import Path
 
 try:
     from .thumbnails import generate_missing_thumbnails
-    from . import job_queue
+    from . import job_queue, api
 except ImportError:
     from thumbnails import generate_missing_thumbnails
     import job_queue
+    import api
 
 # Azure App Service and Azure Container Apps provide the listening port through
 # PORT.  CSN_PORT remains available for local overrides.
@@ -187,6 +188,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
     def do_GET(self):
         route = self.path.split("?", 1)[0]
+        if api.handle(self, "GET", route):
+            return
         if route == "/api/collector/access":
             self.send_json({
                 "available": bool(COLLECTOR_TOKEN) or self.can_use_collector(),
@@ -202,6 +205,8 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         super().do_GET()
 
     def do_POST(self):
+        if api.handle(self, "POST", self.path.split("?", 1)[0]):
+            return
         if self.path.split("?", 1)[0] != "/api/collector/start":
             self.send_json({"error": "Pieprasītais ceļš nav atrasts."}, 404)
             return

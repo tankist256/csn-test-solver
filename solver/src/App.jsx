@@ -5,6 +5,7 @@ import { QuestionCard } from "./components/QuestionCard.jsx";
 import QuestionDialog from "./components/QuestionDialog.jsx";
 import CollectorDialog from "./components/CollectorDialog.jsx";
 import ImageLightbox from "./components/ImageLightbox.jsx";
+import AccountPanel from "./components/AccountPanel.jsx";
 import { migrateBookmarks, readBookmarks, saveBookmarks } from "./utils/bookmarks.js";
 import { filterQuestions, prepareQuestion } from "./utils/search.js";
 import { clampRounds, collectorHeaders } from "./utils/collector.js";
@@ -289,6 +290,7 @@ export default function App() {
         collectorAvailable={collector.available} onCollectorOpen={openCollector}
         query={query} onQueryChange={setQuery} filter={filter} onFilterChange={setFilter} countText={countText}
       />
+      <AccountPanel />
       <main className="main-content">
         <div id="questions-container" className="questions-grid">
           {loadState === "loading" && <div className="empty-state"><h3>Ielādē jautājumus…</h3></div>}

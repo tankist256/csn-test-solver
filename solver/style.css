@@ -59,6 +59,23 @@ body {
 
 body.question-open { overflow: hidden; }
 
+.account-area { max-width: 1440px; margin: 18px auto 0; padding: 0 24px; }
+.account-toolbar, .account-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.account-content { margin-top: 16px; display: grid; gap: 16px; }
+.account-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 16px; }
+.account-card { background: var(--surface-color); border: 1px solid var(--border-color);
+  border-radius: var(--radius); padding: 20px; }
+.account-card h2, .account-card h3 { margin-bottom: 12px; }
+.account-card p { margin: 8px 0; }
+.account-actions { margin-top: 16px; }
+.account-row { display: grid; gap: 3px; padding: 10px 0; border-top: 1px solid var(--border-color); }
+.account-row span, .account-row small { color: var(--text-muted); }
+.account-error { color: var(--wrong-text); margin: 10px 0; }
+.test-meta { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
+.test-options { display: grid; gap: 8px; margin: 16px 0; }
+.test-options .option-item { width: 100%; text-align: left; }
+.account-detail { border-top: 1px solid var(--border-color); margin-top: 18px; padding-top: 18px; }
+
 .app-header {
   position: sticky;
   top: 0;
