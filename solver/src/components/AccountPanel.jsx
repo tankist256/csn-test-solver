@@ -38,7 +38,9 @@ export default function AccountPanel() {
     fetch("/api/config", { cache: "no-store" })
       .then((response) => response.json())
       .then(async (settings) => {
-        if (!active || !settings.auth_enabled) return;
+        if (!active) return;
+        setConfig(settings);
+        if (!settings.auth_enabled) return;
         const { PublicClientApplication } = await import("@azure/msal-browser");
         const msal = new PublicClientApplication({
           auth: {
@@ -51,7 +53,6 @@ export default function AccountPanel() {
         });
         await msal.initialize();
         if (!active) return;
-        setConfig(settings);
         setClient(msal);
         setAccount(msal.getAllAccounts()[0] || null);
       })
@@ -183,6 +184,14 @@ export default function AccountPanel() {
   }
 
   if (!config) return null;
+  if (!config.auth_enabled) return (
+    <section className="account-area" aria-label="Personīgie testi un progress">
+      <div className="account-card">
+        <h2>Personīgie testi un progress</h2>
+        <p>Pierakstīšanās vēl tiek pieslēgta. Kad tā būs gatava, šeit varēsiet saglabāt testu rezultātus, pildīt kvestus un skatīt līderu sarakstu.</p>
+      </div>
+    </section>
+  );
   return (
     <section className="account-area" aria-label="Personīgais progress">
       <div className="account-toolbar">
