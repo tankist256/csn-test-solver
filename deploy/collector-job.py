@@ -16,14 +16,14 @@ def main():
     if len(sys.argv) == 3 and sys.argv[1] == "stream":
         job_id = sys.argv[2]
         if len(job_id) != 32 or not all(char in "0123456789abcdef" for char in job_id):
-            raise SystemExit("Invalid job ID")
+            raise SystemExit("Nederīgs uzdevuma ID")
         for raw in sys.stdin:
             if len(raw) > 12000:
-                raise SystemExit("Event too large")
+                raise SystemExit("Notikums ir pārāk liels")
             if not job_queue.event(job_id, json.loads(raw)):
-                raise SystemExit("Job was replaced")
+                raise SystemExit("Uzdevums ir aizstāts")
         return 0
-    raise SystemExit("Usage: collector-job.py claim | stream JOB_ID")
+    raise SystemExit("Lietojums: collector-job.py claim | stream JOB_ID")
 
 
 if __name__ == "__main__":

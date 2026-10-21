@@ -2,16 +2,16 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-# Установка зависимостей
+# Install dependencies.
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Копируем файлы проекта
+# Copy the project files.
 COPY parser.py .
 COPY solver/ ./solver/
 
-# Открываем порт для веб-интерфейса
+# Expose the website port.
 EXPOSE 8080
 
-# По умолчанию запускаем веб-сервер с базой вопросов и поиском
+# Start the web server with the question bank and search.
 CMD ["python", "solver/serve.py"]

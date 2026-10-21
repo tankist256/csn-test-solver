@@ -1,78 +1,84 @@
-# CSDD Exam Test Solver & Question Bank
+# CSDD Theory Test Solver and Question Bank
 
-Локальная база вопросов и тренажёр по теории CSDD / CredoAutoprieks (категория B). Интерфейс на русском языке, вопросы сохранены на латышском.
+A local question bank and study tool for CSDD / CredoAutoprieks category B theory tests. The website interface and saved questions are in Latvian.
 
 ---
 
-## 🚀 Быстрый запуск
+## Quick start
 
-### Вариант 1: Открыть прямо в браузере (без сервера)
-Просто откройте файл [`solver/index.html`](index.html) двойным кликом в любом браузере (Chrome, Firefox, Safari).
+### Option 1: Open the page directly
 
-### Вариант 2: Запуск локального сервера (для доступа с планшета/телефона по Wi-Fi)
+Open [`index.html`](index.html) in a browser such as Chrome, Firefox, or Safari. This works with a question bank that is already saved on your computer.
+
+### Option 2: Start the local server
+
+Use the server to collect questions and to open the site on a phone or tablet on the same Wi-Fi network:
+
 ```bash
 .venv/bin/python solver/serve.py
 ```
-После запуска в терминале появится ссылка:
-- На компьютере: `http://localhost:8080`
-- На планшете / телефоне в домашней сети: `http://<ваш-ip>:8080`
 
----
+After the server starts, open:
 
-## ⚡ Возможности
+- On this computer: `http://localhost:8080`
+- On a phone or tablet: `http://<computer-IP>:8080`
 
-1. **Мгновенный живой поиск**:
-   - Поиск по тексту вопроса и вариантам ответов.
-   - Игнорирует регистр и латышские гарумзимес (`ā, č, ē, ģ, ī, ķ, ļ, ņ, š, ū, ž` -> `a, c, e...`).
-   - Например, запрос `atrums` моментально найдет вопросы со словом `ātrums`.
-2. **Режим «Шпаргалка» (🎯 Solver Mode)**:
-   - Подтверждённый правильный ответ из CSDD подсвечен зелёным цветом с галочкой `✓`.
-   - Для старых ответов, которые ещё не перепроверены после исправления базы, правильный вариант скрыт.
-   - Неправильные варианты ответов приглушены.
-3. **Режим «Тренажёр» (✍️ Quiz Mode)**:
-   - Ответы скрыты. Можно кликать по вариантам и тренироваться:
-     - При верном клике — становится зеленым.
-     - При ошибке — выбранный подсвечивается красным и раскрывается правильный.
-4. **3D-ситуации и видео**:
-   - 3D-рендеры и схемы перекрестков хранятся локально в `media/`, а в карточках показываются лёгкие WebP-превью без обрезки.
-   - Нажатие на картинку открывает оригинал крупным планом.
-   - Видео загружается только после нажатия кнопки воспроизведения.
-5. **Фильтры и избранное**:
-   - Фильтр по фото, видео, и возможность отмечать сложные вопросы звездочкой ⭐ (сохраняются в памяти браузера).
-   - На телефоне показаны шесть плиток в сетке 2 × 3: в режиме «Шпаргалка» правильный ответ виден сразу. Нажатие на плитку открывает вопрос со всеми вариантами, а кнопки под сеткой переключают страницы. На компьютере вопросы отображаются полноразмерными карточками.
+The terminal shows the computer's network address.
 
----
+## Features
 
-## 🔄 Пополнение базы вопросов
+1. **Live search**
+   - Search question and answer text.
+   - Search ignores case and Latvian diacritics (`ā, č, ē, ģ, ī, ķ, ļ, ņ, š, ū, ž` become their basic letters).
+   - For example, `atrums` finds questions that contain `ātrums`.
+2. **Answer mode**
+   - A correct answer is marked in green only after CSDD has verified it.
+   - Answers that need a new check are hidden until they are verified again.
+   - Incorrect options appear dimmed.
+3. **Practice mode**
+   - Answers stay hidden until you choose an option.
+   - A correct choice turns green. An incorrect choice turns red and reveals the correct option.
+4. **Road images and videos**
+   - Road diagrams and images are stored in `media/`. Cards use small WebP previews that keep the full image visible.
+   - Select an image to open the original at full size.
+   - Videos load only after you select the play button.
+5. **Filters and favourites**
+   - Filter by images or videos, or save difficult questions with the star button. Favourites are saved in browser storage.
+   - On phones, six questions appear in a 2 × 3 grid. In answer mode, a verified answer is visible. Select a tile to open the question with all options. Use the buttons below the grid to change pages.
+   - On computers, questions appear as full-size cards.
 
-При запуске через локальный сервер нажмите кнопку **«Пополнить базу»** в верхней части страницы, укажите количество тестов и нажмите **«Запустить сбор»**. Окно показывает текущий раунд и журнал работы, а после завершения список вопросов обновляется автоматически.
+## Collect questions
 
-При прямом локальном запуске `serve.py` кнопка доступна без ключа. Для публичного сайта и Docker задайте `CSN_COLLECTOR_TOKEN` и введите ключ в окне сбора. Без ключа публичный запуск сборщика и просмотр его журнала закрыты. Браузер не может запустить Python-сборщик, если открыть `index.html` двойным кликом.
+When the site runs through the local server, use the question collection button at the top of the page. Choose the number of tests and start collection. The dialog shows the current test and a log. The question list updates when collection finishes.
 
-| Количество тестов | Вопросов будет обработано | Обычное время | Когда выбирать |
+When `serve.py` runs directly on the local computer, the button is available without a token. For a public site or Docker, set `CSN_COLLECTOR_TOKEN` and enter the same token in the dialog. Without a token, public users cannot start collection or view its log. Opening `index.html` directly cannot start the Python collector.
+
+| Tests | Questions processed | Approximate time | When to use |
 | ---: | ---: | --- | --- |
-| 1 | 30 | 15–25 секунд | Быстро добавить вопросы или проверить работу |
-| 5 | 150 | 2–3 минуты | Обычное пополнение базы |
-| 10 | 300 | 3–5 минут | Собрать больше новых ситуаций |
-| 20 | 600 | 6–9 минут | Большое обновление базы |
-| 30 | 900 | 9–14 минут | Долгий сбор для расширения базы |
-| 40 | 1 200 | 12–18 минут | Почти полная повторная выборка вопросов |
-| 50 | 1 500 | 15–23 минуты | Максимальный сбор за один запуск |
+| 1 | 30 | 15–25 seconds | Add a few questions or check that collection works |
+| 5 | 150 | 2–3 minutes | Regularly add to the question bank |
+| 10 | 300 | 3–5 minutes | Collect more road situations |
+| 20 | 600 | 6–9 minutes | Run a larger update |
+| 30 | 900 | 9–14 minutes | Collect a large sample |
+| 40 | 1,200 | 12–18 minutes | Collect an even larger sample |
+| 50 | 1,500 | 15–23 minutes | Process the maximum number of tests in one run |
 
-Время может увеличиться, если сайт CSDD отвечает медленно или сборщик скачивает новые изображения и видео.
+Collection can take longer when CSDD responds slowly or when new images and videos need to be downloaded.
 
-Чтобы собрать еще больше уникальных вопросов из базы CSDD:
+To run the collector directly:
+
 ```bash
-# Прогнать 20 тестов (по 30 вопросов):
+# Collect 20 tests, with 30 questions in each test.
 .venv/bin/python solver/collector.py --rounds 20
 
-# Или крутить бесконечно до нажатия Ctrl+C:
+# Keep collecting until you press Ctrl+C.
 .venv/bin/python solver/collector.py --loop
 ```
-Сборщик получает правильные ответы из официального просмотра ошибок CSDD и связывает их с текстом, вариантами и изображением/видео ситуации. Это важно, потому что разные ситуации могут иметь одинаковый текст вопроса и ответы. Если страницу ответа нельзя разобрать или пройти список ошибок до конца, раунд отбрасывается. При повторном сборе ответ сверяется и обновляется; при первом запуске исправленной версии старые ответы помечаются непроверенными и скрываются до новой сверки с CSDD.
 
-Успешный сбор обновляет файлы `questions.json` и `questions.js`.
+The collector checks correct answers against the official CSDD review page. It links each answer to the question, options, and related image or video. Different situations can have the same question and answers. If the review page cannot be read or the full error list cannot be checked, that test is discarded. On later runs, answers are checked again and updated when needed. After an update to the collector, older answers are marked as unverified until CSDD checks them again.
+
+A successful collection updates `questions.json` and `questions.js`.
 
 ---
 
-Первоначальный автор проекта: [tankist256](../LICENSE). Форки и изменения допускаются при сохранении авторства и отметки о внесённых изменениях — условия приведены в [LICENSE](../LICENSE).
+The original project author is [tankist256](../LICENSE). Forks and changes are allowed when author credit and a note about changes are kept. See [LICENSE](../LICENSE) for the full terms.

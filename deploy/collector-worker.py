@@ -34,7 +34,7 @@ def remote_command(action, job_id=None):
 def claim_job():
     result = subprocess.run(remote_command("claim"), capture_output=True, text=True, timeout=20)
     if result.returncode:
-        raise RuntimeError(result.stderr.strip() or "Azure is unreachable")
+        raise RuntimeError(result.stderr.strip() or "Azure nav sasniedzama")
     return json.loads(result.stdout)
 
 
@@ -71,13 +71,13 @@ class EventStream:
             self.process.stdin.close()
             code = self.process.wait(timeout=20)
             if code:
-                raise RuntimeError(f"Azure progress channel exited with {code}")
+                raise RuntimeError(f"Azure progresa kanāls beidza darbu ar kodu {code}")
 
 
 def collect(job):
     job_id = job["job_id"]
     rounds = int(job["rounds"])
-    print(f"Starting job {job_id[:8]}: {rounds} rounds", flush=True)
+    print(f"Sākts uzdevums {job_id[:8]}. Testu skaits: {rounds}.", flush=True)
     stream = EventStream(job_id)
     output = queue.Queue()
     process = subprocess.Popen(
@@ -106,7 +106,7 @@ def collect(job):
         code = process.wait()
         stream.send({"type": "finish", "returncode": code})
         stream.close()
-        print(f"Job {job_id[:8]} finished with code {code}", flush=True)
+        print(f"Uzdevums {job_id[:8]} beidzās ar kodu {code}", flush=True)
     except Exception:
         process.terminate()
         raise
@@ -114,7 +114,7 @@ def collect(job):
 
 def main():
     if not Path(SSH_KEY).is_file():
-        raise SystemExit(f"SSH key not found: {SSH_KEY}")
+        raise SystemExit(f"SSH atslēga nav atrasta: {SSH_KEY}")
     last_error = None
     while True:
         try:
@@ -124,10 +124,10 @@ def main():
                 collect(job)
             else:
                 time.sleep(5)
-        except Exception as error:
-            message = str(error)
+        except Exception:
+            message = "Radās palīgprogrammas savienojuma vai izpildes kļūda."
             if message != last_error:
-                print(f"Worker error: {message}", flush=True)
+                print(f"Palīgprogrammas kļūda: {message}", flush=True)
                 last_error = message
             time.sleep(10)
 

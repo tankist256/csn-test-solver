@@ -36,15 +36,35 @@ class JobQueueTest(unittest.TestCase):
         self.assertEqual(claimed["rounds"], 3)
         self.assertIsNone(job_queue.claim())
         self.assertTrue(job_queue.event(claimed["job_id"], {
-            "type": "log", "line": "[✓] Раунд 1 завершен за 10с. Новых: 2",
+            "type": "log",
+            "line": "Azure datubāze atbilst vietējai kopijai. Atjauniniet lapu, lai redzētu izmaiņas.",
         }))
-        self.assertEqual(job_queue.snapshot()["completed_rounds"], 1)
+        self.assertEqual(
+            job_queue.snapshot()["message"],
+            "Azure datubāze atbilst vietējai kopijai. Atjauniniet lapu, lai redzētu izmaiņas.",
+        )
+        self.assertTrue(job_queue.event(claimed["job_id"], {
+            "type": "log", "line": "[✓] Kārta 1/3 pabeigta 10 sekundēs. Jauni jautājumi: 2",
+        }))
+        progress = job_queue.snapshot()
+        self.assertEqual(progress["completed_rounds"], 1)
+        self.assertEqual(progress["message"], "[✓] Kārta 1/3 pabeigta 10 sekundēs. Jauni jautājumi: 2")
         self.assertFalse(job_queue.event("0" * 32, {"type": "finish", "returncode": 0}))
         job_queue.event(claimed["job_id"], {"type": "finish", "returncode": 0})
         state = job_queue.snapshot()
         self.assertFalse(state["running"])
         self.assertEqual(state["returncode"], 0)
+        self.assertIn("Datubāze vietnē ir atjaunināta", state["message"])
         self.assertNotIn("job_id", state)
+
+    def test_reports_latvian_worker_status_messages(self):
+        empty = job_queue.empty_state()
+        self.assertEqual(empty["message"], "Gaida datora palīgprogrammu.")
+
+        status = job_queue.snapshot()
+        self.assertIn("Datora palīgprogramma nav savienota", status["message"])
+        with self.assertRaisesRegex(RuntimeError, "Ieslēdziet palīgprogrammu"):
+            job_queue.enqueue(1)
 
     def test_stale_worker_releases_job(self):
         job_queue.claim()

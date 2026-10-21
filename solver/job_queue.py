@@ -29,7 +29,7 @@ def empty_state():
         "running": False,
         "rounds": 0,
         "completed_rounds": 0,
-        "message": "Ожидаю компьютер-помощник.",
+        "message": "Gaida datora palīgprogrammu.",
         "log": [],
         "returncode": None,
         "started_at": None,
@@ -72,7 +72,7 @@ def refresh_offline(state):
             running=False,
             returncode=3,
             finished_at=now_iso(),
-            message="Компьютер-помощник отключился. Проверьте его и запустите сбор снова.",
+            message="Datora palīgprogramma pārtrauca savienojumu. Pārbaudiet tās darbību un sāciet ievākšanu vēlreiz.",
         )
     return online
 
@@ -83,23 +83,23 @@ def snapshot():
         public = {key: value for key, value in state.items() if key not in {"job_id", "worker_seen"}}
         public["worker_online"] = online
         if not online and not state["running"] and state["returncode"] is None:
-            public["message"] = "Компьютер-помощник не подключён. Включите его для сбора вопросов."
+            public["message"] = "Datora palīgprogramma nav savienota. Ieslēdziet to, lai ievāktu jautājumus."
         return public
 
 
 def enqueue(rounds):
     with locked_state() as state:
         if not refresh_offline(state):
-            raise RuntimeError("Компьютер-помощник не подключён. Включите его и повторите попытку.")
+            raise RuntimeError("Palīgprogramma nav savienota. Ieslēdziet palīgprogrammu un mēģiniet vēlreiz.")
         if state.get("running"):
-            raise ValueError("Сбор уже выполняется.")
+            raise ValueError("Jautājumu ievākšana jau notiek.")
         state.update(
             job_id=uuid.uuid4().hex,
             phase="queued",
             running=True,
             rounds=rounds,
             completed_rounds=0,
-            message="Задание отправлено компьютеру. Ожидаю начало сбора…",
+            message="Uzdevums nosūtīts datoram. Gaida ievākšanas sākumu…",
             log=[],
             returncode=None,
             started_at=now_iso(),
@@ -115,7 +115,7 @@ def claim():
         if state.get("phase") != "queued":
             return None
         state["phase"] = "running"
-        state["message"] = "Компьютер начал сбор вопросов."
+        state["message"] = "Datora palīgprogramma sāk ievākt jautājumus."
         return {"job_id": state["job_id"], "rounds": state["rounds"]}
 
 
@@ -131,11 +131,11 @@ def event(job_id, payload):
             line = str(payload.get("line", ""))[:2000]
             if line:
                 state["log"] = (state.get("log", []) + [line])[-100:]
-                match = re.search(r"Раунд (\d+)(?:/\d+)? завершен", line)
+                match = re.search(r"Kārta (\d+)(?:/\d+)? pabeigta", line)
                 if match:
                     state["completed_rounds"] = int(match.group(1))
                     state["message"] = line
-                elif line.startswith("[!]") or line.startswith("Azure question database matches"):
+                elif line.startswith("[!]") or line.startswith("Azure datubāze atbilst"):
                     state["message"] = line
             return True
         if kind == "finish":
@@ -146,10 +146,10 @@ def event(job_id, payload):
                 returncode=code,
                 finished_at=now_iso(),
                 message=(
-                    f"Готово: обработано тестов {state['completed_rounds']} из {state['rounds']}. "
-                    "База на сайте обновлена."
-                    if code == 0 else "Сбор или передача базы завершились с ошибкой. Подробности в журнале."
+                    f"Ievākšana pabeigta. Pabeigto testu skaits: {state['completed_rounds']} no {state['rounds']}. "
+                    "Datubāze vietnē ir atjaunināta."
+                    if code == 0 else "Jautājumu ievākšana vai datubāzes pārsūtīšana neizdevās. Skatiet žurnālu."
                 ),
             )
             return True
-        raise ValueError("Unknown event type")
+        raise ValueError("Nezināms notikuma veids.")

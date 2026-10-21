@@ -1,13 +1,10 @@
-# Обновление сайта на Azure VM
+# Azure VM Deployment
 
-Путь на VM: `/home/tankist256/csn-test-solver`. После отправки изменений в
-`main` GitHub VM проверяет новую версию раз в две минуты и обновляет контейнер
-`solver`. База `solver/questions.json`, `solver/questions.js` и `solver/media/`
-остаётся на диске VM и не передаётся через Git.
+The project is installed on the VM at `/home/tankist256/csn-test-solver`. A systemd timer checks GitHub `main` every two minutes and updates the `solver` container. The question bank and media stay on the VM and are not sent through Git.
 
-## Однократная настройка
+## One-time setup
 
-1. На VM сохраните резервную копию и подключите уже существующую папку к GitHub:
+1. Back up the existing project directory and connect it to GitHub:
 
    ```bash
    cd /home/tankist256
@@ -20,10 +17,9 @@
    test -s solver/questions.json && test -d solver/media
    ```
 
-   Код берётся из GitHub; база и медиа остаются на VM, потому что эти пути
-   исключены из Git. Резервная копия нужна только на время первого обновления.
+   The code comes from GitHub. The question bank and media stay on the VM because Git ignores those paths. Keep the backup until the first update succeeds.
 
-2. На VM установите сервис и таймер:
+2. Install and enable the update service and timer:
 
    ```bash
    chmod +x /home/tankist256/csn-test-solver/deploy/update-from-github.sh
@@ -33,7 +29,7 @@
    sudo systemctl enable --now csn-solver-update.timer
    ```
 
-## Проверка
+## Verify an update
 
 ```bash
 sudo systemctl start csn-solver-update.service
@@ -41,19 +37,13 @@ sudo journalctl -u csn-solver-update.service -n 80 --no-pager
 curl -fsS http://127.0.0.1:8080/index.html >/dev/null
 ```
 
-Скрипт применяет только обновления `main` без конфликтов, собирает контейнер,
-проверяет ответ сайта и при ошибке возвращает предыдущую версию кода. Если на VM
-изменены отслеживаемые Git файлы, обновление останавливается, чтобы их не потерять.
+The update script accepts only fast-forward changes to `main`. It builds the container, checks that the site responds, and restores the previous code if an update fails. It stops if tracked files on the VM have local changes.
 
-## Пополнение базы, когда CSDD не отвечает с Azure
+## Collect questions through a helper computer
 
-На 16 октября 2026 года тестовый узел `csnt2.csdd.lv` отвечает с домашнего
-компьютера, но соединение с Azure VM истекает по тайм-ауту. На Azure в `.env`
-нужно задать `CSN_REMOTE_WORKER=1`. Тогда кнопка сайта помещает задание в
-очередь; компьютер-помощник забирает его по SSH, запускает локальный сбор и
-синхронизирует результат. Ключ администратора для кнопки остаётся прежним.
+When the Azure VM cannot reach the CSDD test site, a helper computer can collect questions and send the updated bank to Azure. Set `CSN_REMOTE_WORKER=1` in the Azure `.env` file. The site will place collection requests in a queue. The helper computer checks the queue over SSH, runs the collector, and syncs the result. The site's administrator token remains the same.
 
-На компьютере один раз включите пользовательский сервис:
+On the helper computer, enable the user service once:
 
 ```bash
 XDG_RUNTIME_DIR=/run/user/$(id -u) DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/$(id -u)/bus \
@@ -62,24 +52,29 @@ XDG_RUNTIME_DIR=/run/user/$(id -u) DBUS_SESSION_BUS_ADDRESS=unix:path=/run/user/
   systemctl --user enable --now csn-collector-worker.service
 ```
 
-Компьютер должен быть включён и подключён к интернету. Если помощник
-отключён, кнопка не запускает сбор и показывает причину. При обрыве связи
-во время сбора сайт показывает ошибку; сохранённая база не удаляется.
-На настроенном компьютере включён `loginctl enable-linger tankist256`, поэтому
-пользовательский сервис работает и после выхода из графического сеанса.
-Проверить его можно командой `systemctl --user status csn-collector-worker.service`.
+The helper computer must be on and connected to the internet. If it is offline, the site reports this and does not start collection. If the connection is lost during collection, the site shows an error and keeps the saved question bank.
 
-Для ручного обновления публичной базы запустите на компьютере:
+The helper computer is configured with `loginctl enable-linger tankist256`, so its user service can run after logout. Check the service with:
+
+```bash
+systemctl --user status csn-collector-worker.service
+```
+
+## Run a manual collection and sync
+
+On the helper computer, run:
 
 ```bash
 cd /home/tankist256/Documents/CSN
 ./deploy/collect-and-sync.sh 5
 ```
 
-Число проходов — от 1 до 50. Скрипт собирает вопросы локально, передаёт на VM
-только недостающие медиа, затем проверяет и заменяет `questions.json` и
-`questions.js`. На VM сохраняется резервная копия прежней базы в
-`/home/tankist256/csn-data-backups/`. Для передачи уже собранной локальной базы
-без нового прохода используется `./deploy/collect-and-sync.sh --sync-only`.
-После завершения обновите страницу сайта. Компьютер должен быть включён во
-время сбора и синхронизации; сайт Azure продолжает работать независимо от него.
+The number of tests must be from 1 to 50. The script collects questions locally, sends only missing media to the VM, then checks and replaces `questions.json` and `questions.js`. It saves a backup of the previous question bank in `/home/tankist256/csn-data-backups/`.
+
+To sync the question bank already on the helper computer without collecting more questions, run:
+
+```bash
+./deploy/collect-and-sync.sh --sync-only
+```
+
+After the sync finishes, refresh the site. Keep the helper computer online during collection and sync. The Azure site can continue to run while the helper is offline.

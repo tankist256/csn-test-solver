@@ -1,6 +1,6 @@
 // CSDD Exam Test Solver & Question Bank
 
-// Функция нормализации текста (убирает гарумзимес и диакритику для удобного быстрого поиска)
+// Normalize text to make Latvian letters easier to search.
 function normalizeText(str) {
   if (!str) return "";
   return str
@@ -64,7 +64,7 @@ document.addEventListener("DOMContentLoaded", () => {
   } else {
     fetch("questions.json")
       .then((res) => {
-        if (!res.ok) throw new Error("База вопросов не найдена");
+        if (!res.ok) throw new Error("Jautājumu datubāze nav atrasta.");
         return res.json();
       })
       .then((data) => {
@@ -72,9 +72,9 @@ document.addEventListener("DOMContentLoaded", () => {
         initApp();
       })
       .catch((err) => {
-        console.error("Не удалось загрузить questions.json:", err);
+        console.error("Neizdevās ielādēt jautājumu datubāzi:", err);
         document.getElementById("questions-container").innerHTML =
-          '<div class="empty-state"><div class="empty-icon">⚠️</div><h3>База вопросов пока пуста</h3><p>Пополните базу или обратитесь к администратору сайта.</p></div>';
+          '<div class="empty-state"><div class="empty-icon">⚠️</div><h3>Jautājumu datubāze vēl ir tukša</h3><p>Papildiniet datubāzi vai sazinieties ar vietnes administratoru.</p></div>';
       });
   }
 });
@@ -124,7 +124,7 @@ function setupEventListeners() {
     renderQuestions();
   });
 
-  // Переключение режима: Шпаргалка / Тренажер
+  // Switch between answer and training modes.
   document.getElementById("mode-toggle-btn").addEventListener("click", () => {
     currentMode = currentMode === "solver" ? "quiz" : "solver";
     localStorage.setItem("csdd_mode", currentMode);
@@ -136,7 +136,7 @@ function setupEventListeners() {
     refreshQuestionDetail();
   });
 
-  // Переключение темы
+  // Switch the color theme.
   document.getElementById("theme-toggle-btn").addEventListener("click", () => {
     currentTheme = currentTheme === "dark" ? "light" : "dark";
     localStorage.setItem("csdd_theme", currentTheme);
@@ -144,7 +144,7 @@ function setupEventListeners() {
     updateThemeBtnUI();
   });
 
-  // Фильтры (Все, С картинками, Видео, Избранное)
+  // Select which questions to show.
   document.querySelectorAll(".filter-btn").forEach((btn) => {
     btn.addEventListener("click", () => {
       document.querySelectorAll(".filter-btn").forEach((b) => {
@@ -202,7 +202,7 @@ function setupEventListeners() {
         !document.getElementById("lightbox-modal").classList.contains("active")) closeQuestion();
   });
 
-  // Lightbox закрытие
+  // Close the image viewer.
   const lightbox = document.getElementById("lightbox-modal");
   document.getElementById("lightbox-close").addEventListener("click", closeLightbox);
   document.getElementById("lightbox-zoom").addEventListener("click", toggleLightboxZoom);
@@ -227,7 +227,7 @@ function setupCollectorControls() {
     modal.setAttribute("aria-hidden", "false");
     (collectorRequiresToken ? document.getElementById("collector-token") : document.getElementById("collector-rounds")).focus();
     if (collectorRequiresToken && !document.getElementById("collector-token").value.trim()) {
-      document.getElementById("collector-status-text").textContent = "Введите ключ доступа, чтобы управлять сбором.";
+      document.getElementById("collector-status-text").textContent = "Ievadiet piekļuves atslēgu, lai pārvaldītu ievākšanu.";
     } else {
       refreshCollectorStatus();
     }
@@ -265,11 +265,11 @@ async function detectCollectorAccess() {
     document.getElementById("collector-token-field").hidden = !collectorRequiresToken;
     if (collectorWorkerMode) {
       document.getElementById("collector-description").textContent =
-        "Сбор выполняется на вашем компьютере и автоматически обновляет сайт. Компьютер должен быть включён и подключён к интернету.";
+        "Jautājumu ievākšana notiek jūsu datorā un automātiski atjaunina vietni. Datoram jābūt ieslēgtam un savienotam ar internetu.";
     }
     if (!collectorRequiresToken) refreshCollectorStatus();
   } catch (error) {
-    console.warn("Сборщик недоступен:", error);
+    console.warn("Jautājumu ievācējs nav pieejams:", error);
   }
 }
 
@@ -285,7 +285,7 @@ function collectorHeaders(includeContentType = false) {
 async function startCollector() {
   if (collectorStartPending) return;
   if (collectorRequiresToken && !document.getElementById("collector-token").value.trim()) {
-    showCollectorConnectionError("Введите ключ доступа к сборщику.");
+    showCollectorConnectionError("Ievadiet jautājumu ievācēja piekļuves atslēgu.");
     document.getElementById("collector-token").focus();
     return;
   }
@@ -296,7 +296,8 @@ async function startCollector() {
   // Discard status requests started by the token field before this new run.
   ++collectorRequestVersion;
   clearTimeout(collectorPollTimer);
-  setCollectorPending(`Запускаю ${rounds} тест(ов)…`);
+  const testForm = rounds % 10 === 1 && rounds % 100 !== 11 ? "testu" : "testus";
+  setCollectorPending(`Sāku ievākt ${rounds.toLocaleString("lv-LV")} ${testForm}…`);
 
   try {
     const response = await fetch("/api/collector/start", {
@@ -305,12 +306,15 @@ async function startCollector() {
       body: JSON.stringify({ rounds }),
     });
     const data = await response.json();
-    if (!response.ok) throw new Error(data.error || "Не удалось запустить сбор.");
+    if (!response.ok) {
+      showCollectorConnectionError(data.error || "Neizdevās sākt jautājumu ievākšanu.");
+      return;
+    }
     collectorWasRunning = true;
     updateCollectorUI(data);
     scheduleCollectorPoll();
-  } catch (error) {
-    showCollectorConnectionError(error.message);
+  } catch {
+    showCollectorConnectionError("Neizdevās izveidot savienojumu ar jautājumu ievācēju.");
   } finally {
     collectorStartPending = false;
   }
@@ -321,8 +325,14 @@ async function refreshCollectorStatus() {
   const requestVersion = ++collectorRequestVersion;
   try {
     const response = await fetch("/api/collector/status", { cache: "no-store", headers: collectorHeaders() });
-    if (response.status === 401) throw new Error("Неверный ключ доступа.");
-    if (!response.ok) throw new Error("Сборщик недоступен.");
+    if (response.status === 401) {
+      showCollectorConnectionError("Piekļuves atslēga nav derīga.");
+      return;
+    }
+    if (!response.ok) {
+      showCollectorConnectionError("Jautājumu ievācējs nav pieejams.");
+      return;
+    }
     const state = await response.json();
     if (requestVersion !== collectorRequestVersion) return;
     updateCollectorUI(state);
@@ -334,9 +344,9 @@ async function refreshCollectorStatus() {
       await reloadQuestionDatabase();
     }
     if (collectorWorkerMode && !state.running) scheduleCollectorPoll(5000);
-  } catch (error) {
+  } catch {
     if (requestVersion !== collectorRequestVersion) return;
-    showCollectorConnectionError(error.message);
+    showCollectorConnectionError("Neizdevās izveidot savienojumu ar jautājumu ievācēju.");
   }
 }
 
@@ -364,31 +374,31 @@ function updateCollectorUI(state) {
 
   statusBox.className = `collector-status ${offline ? "error" : state.running ? "running" : previousRun ? "idle" : state.returncode === 0 ? "success" : state.returncode ? "error" : "idle"}`;
   title.textContent = offline
-    ? "Нет связи с компьютером"
+    ? "Nav savienojuma ar palīgprogrammu"
     : state.running
     ? state.phase === "queued"
-      ? "Ожидаю компьютер"
-      : `Сбор вопросов: тест ${Math.min(completed + 1, rounds)} из ${rounds}`
+      ? "Gaida palīgprogrammas savienojumu"
+      : `Jautājumu ievākšana: ${Math.min(completed + 1, rounds).toLocaleString("lv-LV")}. no ${rounds.toLocaleString("lv-LV")} ${rounds === 1 ? "testa" : "testiem"}`
     : previousRun
-      ? "Готово к запуску"
+      ? "Gatavs darbam"
     : state.returncode === 0
-      ? "База успешно обновлена"
+      ? "Datubāze veiksmīgi atjaunināta"
       : state.returncode
-        ? "Сбор завершился с ошибкой"
-        : "Готово к запуску";
+        ? "Jautājumu ievākšana neizdevās"
+        : "Gatavs darbam";
   text.textContent = offline
-    ? "Сайт не получает сигнал от сборщика на компьютере. Проверьте, что помощник запущен и может подключиться к серверу. Новый сбор пока недоступен."
+    ? "Vietne nesaņem signālu no datorā palaistās palīgprogrammas. Pārbaudiet, vai tā darbojas un var izveidot savienojumu ar serveri. Jaunu jautājumu ievākšana pašlaik nav pieejama."
     : previousRun
-      ? "Нажмите «Запустить сбор», чтобы пополнить базу. Результат прошлого запуска доступен в журнале ниже."
-      : state.message || "Сборщик готов к запуску.";
+      ? "Nospiediet “Sākt jautājumu ievākšanu”, lai papildinātu datubāzi. Iepriekšējā mēģinājuma informācija ir pieejama žurnālā zemāk."
+      : state.message || "Jautājumu ievācējs ir gatavs darbam.";
   progress.style.width = `${offline || previousRun ? 0 : state.running ? Math.max(percent, 3) : state.returncode === 0 ? 100 : percent}%`;
   log.textContent = Array.isArray(state.log) ? state.log.join("\n") : "";
   const finished = state.finished_at ? new Date(state.finished_at) : null;
   const finishedLabel = finished && !Number.isNaN(finished.getTime())
-    ? ` · ${finished.toLocaleString("ru-RU")}` : "";
+    ? ` · ${finished.toLocaleString("lv-LV")}` : "";
   logSummary.textContent = state.running
-    ? "Журнал текущего сбора"
-    : `${previousRun || offline ? "Предыдущий сбор" : "Журнал завершённого сбора"}${finishedLabel}`;
+    ? "Pašreizējās ievākšanas žurnāls"
+    : `${previousRun || offline ? "Iepriekšējās ievākšanas žurnāls" : "Pabeigtās ievākšanas žurnāls"}${finishedLabel}`;
   logResult.textContent = !state.running && state.returncode != null ? state.message || "" : "";
   logDetails.hidden = !log.textContent && !logResult.textContent;
   const logView = `${state.started_at || ""}:${state.running ? "running" : previousRun || offline ? "history" : "finished"}`;
@@ -404,7 +414,7 @@ function updateCollectorUI(state) {
 function setCollectorPending(message) {
   const statusBox = document.getElementById("collector-status");
   statusBox.className = "collector-status running";
-  document.getElementById("collector-status-title").textContent = "Подключение к сборщику";
+  document.getElementById("collector-status-title").textContent = "Veido savienojumu ar palīgprogrammu";
   document.getElementById("collector-status-text").textContent = message;
   document.getElementById("collector-start-btn").disabled = true;
   document.getElementById("collector-rounds").disabled = true;
@@ -416,7 +426,7 @@ function setCollectorPending(message) {
 function showCollectorConnectionError(message) {
   const statusBox = document.getElementById("collector-status");
   statusBox.className = "collector-status error";
-  document.getElementById("collector-status-title").textContent = "Сборщик недоступен";
+  document.getElementById("collector-status-title").textContent = "Jautājumu ievācējs nav pieejams";
   document.getElementById("collector-status-text").textContent = message;
   document.getElementById("collector-start-btn").disabled = location.protocol === "file:";
   document.getElementById("collector-rounds").disabled = false;
@@ -427,32 +437,32 @@ function showCollectorConnectionError(message) {
 async function reloadQuestionDatabase() {
   try {
     const response = await fetch(`questions.json?t=${Date.now()}`, { cache: "no-store" });
-    if (!response.ok) throw new Error("Не удалось загрузить обновлённую базу.");
+    if (!response.ok) throw new Error("Neizdevās ielādēt atjaunināto datubāzi.");
     allQuestions = await response.json();
     window.CSDD_QUESTIONS = allQuestions;
     migrateBookmarks();
     prepareQuestions();
     renderQuestions();
-  } catch (error) {
-    document.getElementById("collector-status-text").textContent = `${error.message} Обновите страницу вручную.`;
+  } catch {
+    document.getElementById("collector-status-text").textContent = "Neizdevās ielādēt atjaunināto datubāzi. Atjauniniet lapu manuāli.";
   }
 }
 
 function updateModeBtnUI() {
   const btn = document.getElementById("mode-toggle-btn");
   if (currentMode === "solver") {
-    btn.innerHTML = '<span aria-hidden="true">🎯</span> <strong>Шпаргалка</strong>';
-    btn.setAttribute("aria-label", "Режим: Шпаргалка. Переключить на тренажёр");
+    btn.innerHTML = '<span aria-hidden="true">🎯</span> <strong>Atbilžu lapa</strong>';
+    btn.setAttribute("aria-label", "Režīms: Atbilžu lapa. Pārslēgt uz treniņrežīmu");
   } else {
-    btn.innerHTML = '<span aria-hidden="true">✍️</span> <strong>Тренажёр</strong>';
-    btn.setAttribute("aria-label", "Режим: Тренажёр. Переключить на шпаргалку");
+    btn.innerHTML = '<span aria-hidden="true">✍️</span> <strong>Treniņrežīms</strong>';
+    btn.setAttribute("aria-label", "Režīms: Treniņrežīms. Pārslēgt uz atbilžu lapu");
   }
 }
 
 function updateThemeBtnUI() {
   const btn = document.getElementById("theme-toggle-btn");
   btn.innerHTML = currentTheme === "dark" ? "☀️" : "🌙";
-  btn.setAttribute("aria-label", currentTheme === "dark" ? "Включить светлую тему" : "Включить тёмную тему");
+  btn.setAttribute("aria-label", currentTheme === "dark" ? "Ieslēgt gaišo režīmu" : "Ieslēgt tumšo režīmu");
 }
 
 function renderQuestions() {
@@ -480,8 +490,8 @@ function renderPage() {
   container.replaceChildren();
 
   if (!total) {
-    container.innerHTML = '<div class="empty-state"><div class="empty-icon">🔍</div><h3>Ничего не найдено</h3><p>Измените запрос или выберите другой фильтр.</p></div>';
-    document.getElementById("stats-counter").textContent = 'Найдено: 0 из ' + allQuestions.length;
+    container.innerHTML = '<div class="empty-state"><div class="empty-icon">🔍</div><h3>Nekas nav atrasts</h3><p>Mainiet meklēšanas vaicājumu vai izvēlieties citu filtru.</p></div>';
+    document.getElementById("stats-counter").textContent = 'Atrasti 0 no ' + allQuestions.length + ' jautājumiem';
     pagination.hidden = true;
     return;
   }
@@ -494,8 +504,8 @@ function renderPage() {
     '<div class="question-tile tile-placeholder" aria-hidden="true"></div>'.repeat(PAGE_SIZE - shown.length);
   container.append(template.content);
   document.getElementById("stats-counter").textContent =
-    'Вопросы ' + (first + 1) + '–' + (first + shown.length) + ' из ' + total +
-    (total !== allQuestions.length ? ' · Всего ' + allQuestions.length : '');
+    'Jautājumi ' + (first + 1) + '–' + (first + shown.length) + ' no ' + total +
+    (total !== allQuestions.length ? ' · Kopā ' + allQuestions.length : '');
   pagination.hidden = false;
   document.getElementById("page-indicator").textContent = (currentPage + 1) + ' / ' + pageCount;
   document.getElementById("previous-page-btn").disabled = currentPage === 0;
@@ -513,8 +523,8 @@ function renderDesktopQuestions() {
   container.replaceChildren();
   renderedCount = 0;
   if (!filteredQuestions.length) {
-    container.innerHTML = '<div class="empty-state"><div class="empty-icon">🔍</div><h3>Ничего не найдено</h3><p>Измените запрос или выберите другой фильтр.</p></div>';
-    document.getElementById("stats-counter").textContent = 'Найдено: 0 из ' + allQuestions.length;
+    container.innerHTML = '<div class="empty-state"><div class="empty-icon">🔍</div><h3>Nekas nav atrasts</h3><p>Mainiet meklēšanas vaicājumu vai izvēlieties citu filtru.</p></div>';
+    document.getElementById("stats-counter").textContent = 'Atrasti 0 no ' + allQuestions.length + ' jautājumiem';
     document.getElementById("load-more-btn").hidden = true;
     return;
   }
@@ -531,8 +541,8 @@ function appendDesktopQuestions() {
   document.getElementById("questions-container").append(template.content);
   renderedCount = end;
   document.getElementById("stats-counter").textContent =
-    'Показано ' + renderedCount + ' из ' + filteredQuestions.length +
-    (filteredQuestions.length !== allQuestions.length ? ' · Всего ' + allQuestions.length : '');
+    'Rādīti ' + renderedCount + ' no ' + filteredQuestions.length +
+    (filteredQuestions.length !== allQuestions.length ? ' · Kopā ' + allQuestions.length : '');
   document.getElementById("load-more-btn").hidden = renderedCount >= filteredQuestions.length;
   setupLazyImages();
 }
@@ -560,12 +570,12 @@ function renderTile(q, number, query) {
       : '<span class="tile-media tile-video" aria-hidden="true">?</span>';
   const answer = currentMode === "solver"
     ? `<span class="tile-answer ${showAnswer ? "" : "tile-answer-unverified"}">
-        <span class="tile-answer-label">${showAnswer ? "✓ Правильный ответ" : "Ответ не проверен"}</span>
+        <span class="tile-answer-label">${showAnswer ? "✓ Pareizā atbilde" : "Atbilde vēl nav pārbaudīta"}</span>
         ${showAnswer ? `<span class="tile-answer-text">${highlightMatch(correctOption.text, query)}</span>` : ""}
       </span>`
     : "";
-  const accessibleLabel = `Открыть вопрос ${number}: ${q.question}` +
-    (showAnswer ? `. Правильный ответ: ${correctOption.text}` : "");
+  const accessibleLabel = `Atvērt jautājumu ${number}: ${q.question}` +
+    (showAnswer ? `. Pareizā atbilde: ${correctOption.text}` : "");
   return `<button type="button" class="question-tile" data-index="${number - 1}"
     aria-label="${escapeHTML(accessibleLabel)}">
     <span class="tile-number">№ ${number}</span>
@@ -615,17 +625,17 @@ function renderCard(q, number, query, fullImage = false) {
   let mediaHtml = "";
   if (q.video) {
     mediaHtml = `<div class="card-media">
-      <button class="video-play-btn" type="button" data-video-src="${escapeHTML(q.video)}" aria-label="Воспроизвести видео дорожной ситуации">
-        <span aria-hidden="true">▶</span>Смотреть видео
+      <button class="video-play-btn" type="button" data-video-src="${escapeHTML(q.video)}" aria-label="Atskaņot ceļu satiksmes situācijas video">
+        <span aria-hidden="true">▶</span>Skatīties video
       </button>
     </div>`;
   } else if (q.img) {
     mediaHtml = `<div class="card-media">
-      <button class="media-open-btn" type="button" data-full-src="${escapeHTML(q.img)}" aria-label="Увеличить дорожную ситуацию">
+      <button class="media-open-btn" type="button" data-full-src="${escapeHTML(q.img)}" aria-label="Palielināt ceļu satiksmes situācijas attēlu">
         ${fullImage
-          ? `<img src="${escapeHTML(q.img)}" alt="Дорожная ситуация">`
-          : `<img class="lazy-image" data-src="${escapeHTML(thumbnailPath(q.img))}" data-full-src="${escapeHTML(q.img)}" alt="Дорожная ситуация">`}
-        <span class="media-badge">Увеличить</span>
+          ? `<img src="${escapeHTML(q.img)}" alt="Ceļu satiksmes situācija">`
+          : `<img class="lazy-image" data-src="${escapeHTML(thumbnailPath(q.img))}" data-full-src="${escapeHTML(q.img)}" alt="Ceļu satiksmes situācija">`}
+        <span class="media-badge">Palielināt</span>
       </button>
     </div>`;
   }
@@ -645,14 +655,14 @@ function renderCard(q, number, query, fullImage = false) {
     ${mediaHtml}
     <div class="card-body">
       <div class="card-header-line">
-        <span class="question-number">Вопрос ${number}</span>
+        <span class="question-number">Jautājums ${number}</span>
         <button type="button" class="btn-bookmark ${isBookmarked ? "bookmarked" : ""}"
           data-question-id="${escapeHTML(q.id)}" aria-pressed="${isBookmarked}"
-          aria-label="${isBookmarked ? "Убрать из избранного" : "Добавить в избранное"}"
-          title="${isBookmarked ? "Убрать из избранного" : "Добавить в избранное"}">${isBookmarked ? "★" : "☆"}</button>
+          aria-label="${isBookmarked ? "Noņemt no izlases" : "Pievienot izlasei"}"
+          title="${isBookmarked ? "Noņemt no izlases" : "Pievienot izlasei"}">${isBookmarked ? "★" : "☆"}</button>
       </div>
       <div class="question-text">${highlightMatch(q.question, query)}</div>
-      ${answerVerified ? "" : '<div class="answer-status">Ответ пока не перепроверен в CSDD.</div>'}
+      ${answerVerified ? "" : '<div class="answer-status">Atbilde CSDD vēl nav pārbaudīta.</div>'}
       <div class="options-list">${optionsHtml}</div>
     </div>
   </article>`;
@@ -750,7 +760,7 @@ function toggleBookmark(qId, btn) {
   btn.classList.toggle("bookmarked", !wasBookmarked);
   btn.textContent = wasBookmarked ? "☆" : "★";
   btn.setAttribute("aria-pressed", String(!wasBookmarked));
-  const label = wasBookmarked ? "Добавить в избранное" : "Убрать из избранного";
+  const label = wasBookmarked ? "Pievienot izlasei" : "Noņemt no izlases";
   btn.setAttribute("aria-label", label);
   btn.title = label;
   localStorage.setItem("csdd_bookmarks", JSON.stringify(Array.from(bookmarks)));
@@ -777,7 +787,7 @@ function closeLightbox() {
   document.getElementById("lightbox-img").src = "";
   document.getElementById("lightbox-content").classList.remove("zoomed");
   document.getElementById("lightbox-zoom").textContent = "＋";
-  document.getElementById("lightbox-zoom").setAttribute("aria-label", "Увеличить изображение");
+  document.getElementById("lightbox-zoom").setAttribute("aria-label", "Palielināt attēlu");
   if (lightboxTrigger?.isConnected) lightboxTrigger.focus();
   lightboxTrigger = null;
 }
@@ -787,6 +797,6 @@ function toggleLightboxZoom() {
   const zoomed = content.classList.toggle("zoomed");
   const button = document.getElementById("lightbox-zoom");
   button.textContent = zoomed ? "－" : "＋";
-  button.setAttribute("aria-label", zoomed ? "Уместить изображение" : "Увеличить изображение");
+  button.setAttribute("aria-label", zoomed ? "Samazināt attēlu" : "Palielināt attēlu");
   if (zoomed) content.scrollTo({ left: (content.scrollWidth - content.clientWidth) / 2, top: 0 });
 }

@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="ru" data-theme="dark">
+<html lang="lv" data-theme="dark">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Теория CSDD — вопросы категории B</title>
+  <title>CSDD teorija — B kategorijas jautājumi</title>
   <link rel="stylesheet" href="style.css">
 </head>
 <body class="mode-solver">
@@ -12,15 +12,15 @@
     <div class="header-top">
       <div class="logo-area">
         <span class="badge-csdd">CSDD B</span>
-        <h1 class="app-title">Теория CSDD</h1>
+        <h1 class="app-title">CSDD teorija</h1>
       </div>
       <div class="header-controls">
-        <button id="mode-toggle-btn" class="btn mode-toggle-btn" title="Переключить режим" aria-label="Режим: Шпаргалка">
-          <span aria-hidden="true">🎯</span> <strong>Шпаргалка</strong>
+        <button id="mode-toggle-btn" class="btn mode-toggle-btn" title="Pārslēgt režīmu" aria-label="Režīms: Atbilžu lapa">
+          <span aria-hidden="true">🎯</span> <strong>Atbilžu lapa</strong>
         </button>
-        <button id="theme-toggle-btn" class="btn icon-btn" title="Сменить тему" aria-label="Сменить тему">🌙</button>
-        <button id="collector-open-btn" class="btn btn-primary collector-open-btn" title="Пополнить базу вопросов" aria-label="Пополнить базу вопросов" hidden>
-          <span aria-hidden="true">↻</span> <strong>Пополнить базу</strong>
+        <button id="theme-toggle-btn" class="btn icon-btn" title="Mainīt krāsu režīmu" aria-label="Mainīt krāsu režīmu">🌙</button>
+        <button id="collector-open-btn" class="btn btn-primary collector-open-btn" title="Papildināt jautājumu datubāzi" aria-label="Papildināt jautājumu datubāzi" hidden>
+          <span aria-hidden="true">↻</span> <strong>Papildināt jautājumus</strong>
         </button>
       </div>
     </div>
@@ -28,44 +28,44 @@
     <div class="search-box-container">
       <div class="search-input-wrapper">
         <span class="search-icon">🔍</span>
-        <input 
-          type="text" 
-          id="search-input" 
-          class="search-input" 
-          placeholder="Найти вопрос или ответ…"
+        <input
+          type="text"
+          id="search-input"
+          class="search-input"
+          placeholder="Meklēt jautājumu vai atbildi…"
           autocomplete="off"
-          aria-label="Поиск вопросов и ответов"
+          aria-label="Meklēt jautājumus un atbildes"
         >
-        <button id="clear-search-btn" class="clear-search-btn" title="Очистить поиск" aria-label="Очистить поиск">✕</button>
+        <button id="clear-search-btn" class="clear-search-btn" title="Notīrīt meklēšanu" aria-label="Notīrīt meklēšanu">✕</button>
       </div>
     </div>
 
     <div class="filters-bar">
       <div class="filter-tags">
-        <button class="filter-btn active" data-filter="all" aria-pressed="true">Все</button>
-        <button class="filter-btn" data-filter="images" aria-pressed="false">С изображением</button>
-        <button class="filter-btn" data-filter="videos" aria-pressed="false">Видео</button>
-        <button class="filter-btn" data-filter="bookmarks" aria-pressed="false">★ Избранное</button>
+        <button class="filter-btn active" data-filter="all" aria-pressed="true">Visi jautājumi</button>
+        <button class="filter-btn" data-filter="images" aria-pressed="false">Ar attēliem</button>
+        <button class="filter-btn" data-filter="videos" aria-pressed="false">Video</button>
+        <button class="filter-btn" data-filter="bookmarks" aria-pressed="false">★ Izlase</button>
       </div>
-      <div id="stats-counter" class="stats-counter">Загрузка…</div>
+      <div id="stats-counter" class="stats-counter">Ielādē…</div>
     </div>
   </header>
 
   <main class="main-content">
     <div id="questions-container" class="questions-grid">
-      <!-- На компьютере карточки, на телефоне сетка 2 × 3 -->
+      <!-- Desktop uses cards. Mobile uses a 2 by 3 grid. -->
     </div>
-    <button id="load-more-btn" class="btn load-more-btn" type="button" hidden>Показать ещё</button>
-    <nav id="questions-pagination" class="questions-pagination" aria-label="Страницы вопросов" hidden>
-      <button id="previous-page-btn" class="btn page-btn" type="button">← Назад</button>
+    <button id="load-more-btn" class="btn load-more-btn" type="button" hidden>Parādīt vēl jautājumus</button>
+    <nav id="questions-pagination" class="questions-pagination" aria-label="Jautājumu lapas" hidden>
+      <button id="previous-page-btn" class="btn page-btn" type="button">← Iepriekšējā</button>
       <span id="page-indicator" class="page-indicator" aria-live="polite"></span>
-      <button id="next-page-btn" class="btn page-btn" type="button">Далее →</button>
+      <button id="next-page-btn" class="btn page-btn" type="button">Nākamā →</button>
     </nav>
   </main>
 
   <div id="question-modal" class="dialog-backdrop question-backdrop" aria-hidden="true">
-    <section class="question-dialog" role="dialog" aria-modal="true" aria-label="Вопрос и варианты ответа">
-      <button id="question-close-btn" class="dialog-close question-close" type="button" aria-label="Закрыть вопрос">✕</button>
+    <section class="question-dialog" role="dialog" aria-modal="true" aria-label="Jautājums un atbilžu varianti">
+      <button id="question-close-btn" class="dialog-close question-close" type="button" aria-label="Aizvērt jautājumu">✕</button>
       <div id="question-detail"></div>
     </section>
   </div>
@@ -74,30 +74,30 @@
     <section class="collector-dialog" role="dialog" aria-modal="true" aria-labelledby="collector-title">
       <div class="dialog-header">
         <div>
-          <div class="dialog-kicker">Официальный тест CSDD</div>
-          <h2 id="collector-title">Пополнение базы</h2>
+          <div class="dialog-kicker">Oficiālais CSDD tests</div>
+          <h2 id="collector-title">Datubāzes papildināšana</h2>
         </div>
-        <button id="collector-close-btn" class="dialog-close" title="Закрыть" aria-label="Закрыть">✕</button>
+        <button id="collector-close-btn" class="dialog-close" title="Aizvērt" aria-label="Aizvērt">✕</button>
       </div>
 
       <p id="collector-description" class="dialog-description">
-        Один проход получает 30 тестовых вопросов, затем читает правильные ответы на странице результатов CSDD.
+        Vienā reizē tiek iegūti 30 testa jautājumi, pēc tam CSDD rezultātu lapā tiek nolasītas pareizās atbildes.
       </p>
 
       <div id="collector-token-field" class="collector-token-field" hidden>
-        <label for="collector-token">Ключ доступа к сборщику</label>
-        <input id="collector-token" type="password" autocomplete="off" placeholder="Введите ключ администратора">
+        <label for="collector-token">Piekļuves atslēga</label>
+        <input id="collector-token" type="password" autocomplete="off" placeholder="Ievadiet administratora atslēgu">
       </div>
 
       <div class="collector-form">
         <label for="collector-rounds">
-          Количество тестов
-          <small>Обычно достаточно 1–5</small>
+          Testu skaits
+          <small>Parasti pietiek ar 1–5</small>
         </label>
         <div class="rounds-control">
           <input id="collector-rounds" type="number" min="1" max="50" value="1" inputmode="numeric">
           <button id="collector-start-btn" class="btn btn-primary collector-start-btn">
-            <span>▶</span> Запустить сбор
+            <span>▶</span> Sākt jautājumu ievākšanu
           </button>
         </div>
       </div>
@@ -105,12 +105,12 @@
       <div id="collector-status" class="collector-status idle">
         <div class="status-line">
           <span id="collector-status-dot" class="status-dot"></span>
-          <strong id="collector-status-title">Готово к запуску</strong>
+          <strong id="collector-status-title">Gatavs darbam</strong>
         </div>
-        <div id="collector-status-text" class="status-text">Сервер проверит доступность сборщика.</div>
+        <div id="collector-status-text" class="status-text">Serveris pārbaudīs, vai jautājumu ievācējs ir pieejams.</div>
         <div class="progress-track" aria-hidden="true"><div id="collector-progress" class="progress-bar"></div></div>
         <details id="collector-log-details" class="collector-log-details" hidden>
-          <summary id="collector-log-summary">Журнал сбора</summary>
+          <summary id="collector-log-summary">Ievākšanas žurnāls</summary>
           <div id="collector-log-result" class="status-text"></div>
           <pre id="collector-log" class="collector-log" aria-live="polite"></pre>
         </details>
@@ -118,16 +118,16 @@
     </section>
   </div>
 
-  <!-- Модальное окно Lightbox для просмотра 3D картинок на весь экран -->
-  <div id="lightbox-modal" class="lightbox-modal" role="dialog" aria-modal="true" aria-label="Изображение дорожной ситуации" aria-hidden="true">
-    <button id="lightbox-zoom" class="lightbox-zoom" title="Увеличить изображение" aria-label="Увеличить изображение">＋</button>
-    <button id="lightbox-close" class="lightbox-close" title="Закрыть" aria-label="Закрыть">✕</button>
+  <!-- Show a road situation image at full size. -->
+  <div id="lightbox-modal" class="lightbox-modal" role="dialog" aria-modal="true" aria-label="Ceļu satiksmes situācijas attēls" aria-hidden="true">
+    <button id="lightbox-zoom" class="lightbox-zoom" title="Palielināt attēlu" aria-label="Palielināt attēlu">＋</button>
+    <button id="lightbox-close" class="lightbox-close" title="Aizvērt" aria-label="Aizvērt">✕</button>
     <div id="lightbox-content" class="lightbox-content">
-      <img id="lightbox-img" src="" alt="Дорожная ситуация крупным планом">
+      <img id="lightbox-img" src="" alt="Ceļu satiksmes situācija tuvplānā">
     </div>
   </div>
 
-  <!-- База вопросов в формате JS для работы автономно без веб-сервера -->
+  <!-- Load the question bank for direct use without a web server. -->
   <script src="questions.js"></script>
   <script src="app.js"></script>
 </body>

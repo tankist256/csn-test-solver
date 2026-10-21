@@ -776,7 +776,7 @@ body.question-open { overflow: hidden; }
   flex-shrink: 0;
 }
 
-/* Solver Mode (Шпаргалка): правильный ответ подсвечен всегда */
+/* Answer mode always shows the verified correct answer. */
 body.mode-solver .option-item.correct {
   background-color: var(--correct-bg);
   border-color: var(--correct-border);
@@ -794,7 +794,7 @@ body.mode-solver .option-item:not(.correct) {
   opacity: 0.65;
 }
 
-/* Quiz Mode (Тренажер): ответ открывается по клику */
+/* Practice mode shows the answer after a choice. */
 body.mode-quiz .option-item {
   cursor: pointer;
 }
@@ -831,7 +831,7 @@ body.mode-quiz .option-item.revealed-correct {
   border-radius: 2px;
 }
 
-/* Lightbox Modal */
+/* Image lightbox modal. */
 .lightbox-modal {
   position: fixed;
   top: 0;

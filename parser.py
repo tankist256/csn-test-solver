@@ -21,6 +21,17 @@ session = requests.Session()
 session.headers.update(headers)
 
 
+class LatvianArgumentParser(argparse.ArgumentParser):
+    def format_help(self):
+        help_text = super().format_help()
+        return (
+            help_text.replace("usage:", "Lietojums:", 1)
+            .replace("options:", "Opcijas:", 1)
+            .replace("optional arguments:", "Opcijas:", 1)
+            .replace("show this help message and exit", "Parāda šo palīdzību un iziet", 1)
+        )
+
+
 def create_dir(dir_name):
     if not os.path.exists(dir_name):
         os.makedirs(dir_name, exist_ok=True)
@@ -31,7 +42,7 @@ def get_image_filename(url):
     base_name = os.path.basename(clean_url)
     if not base_name:
         base_name = "image.png"
-    # Добавляем короткий хеш полного URL во избежание коллизий одинаковых имен
+    # Add a short hash of the full URL to avoid duplicate names.
     url_hash = hashlib.md5(url.encode("utf-8")).hexdigest()[:8]
     return f"{url_hash}_{base_name}"
 
@@ -50,9 +61,9 @@ def download_file(url, folder):
                     f.write(chunk)
             return filepath
         else:
-            print(f"Статус {response.status_code} при скачивании {url}")
+            print(f"HTTP statuss {response.status_code}, lejupielādējot {url}")
     except Exception as e:
-        print(f"Ошибка при скачивании файла {url}: {e}")
+        print(f"Kļūda, lejupielādējot failu {url}: {e}")
     return None
 
 
@@ -61,15 +72,15 @@ def parse_csn(base_url=DEFAULT_BASE_URL, output_dir=DEFAULT_OUTPUT_DIR):
     img_dir = os.path.join(output_dir, "images")
     create_dir(img_dir)
 
-    print(f"Загружаем главную страницу с разделами: {base_url} ...")
+    print(f"Ielādē galveno lapu ar nodaļām: {base_url} ...")
     response = session.get(base_url)
     if response.status_code != 200:
-        print(f"Не удалось загрузить главную страницу, код {response.status_code}")
+        print(f"Neizdevās ielādēt galveno lapu. HTTP statuss: {response.status_code}")
         return
 
     soup = BeautifulSoup(response.text, "html.parser")
 
-    # Ищем все ссылки на главы внутри основного контейнера или по шаблону
+    # Find chapter links inside the main container or by pattern.
     main_container = soup.find("div", class_="simple-page") or soup.find("article") or soup.body
     links = []
     normalized_base = base_url.rstrip("/")
@@ -78,31 +89,31 @@ def parse_csn(base_url=DEFAULT_BASE_URL, output_dir=DEFAULT_OUTPUT_DIR):
         href = a["href"]
         if "/mcibu-materiali/csn/" in href:
             full_url = urljoin(base_url, href)
-            # Исключаем ссылку на саму главную страницу и переключатели языка
+            # Skip the home page link and language controls.
             if full_url.rstrip("/") != normalized_base and full_url not in links:
-                # Убедимся, что это подраздел того же языка
+                # Make sure the link belongs to the same language section.
                 if ("/ru/" in base_url and "/ru/" in full_url) or ("/ru/" not in base_url and "/ru/" not in full_url):
                     links.append(full_url)
 
-    print(f"Найдено разделов: {len(links)}")
+    print(f"Atrasto nodaļu skaits: {len(links)}")
     if not links:
-        print("Разделы не найдены. Проверьте адрес страницы.")
+        print("Nodaļas nav atrastas. Pārbaudiet lapas adresi.")
         return
 
-    # Собираем данные страниц
+    # Collect data from each page.
     chapters_data = []
 
-    print("\nЗагрузка глав...")
+    print("\nIelādē nodaļas...")
     for idx, link in enumerate(links, start=1):
-        print(f"[{idx}/{len(links)}] Загрузка: {link}")
+        print(f"[{idx}/{len(links)}] Ielādē: {link}")
         res = session.get(link, timeout=20)
         if res.status_code != 200:
-            print(f"  Ошибка загрузки (код {res.status_code})")
+            print(f"  Ielādes kļūda. HTTP statuss: {res.status_code}")
             continue
 
         page_soup = BeautifulSoup(res.text, "html.parser")
 
-        # Находим основной контейнер со статьей
+        # Find the main article container.
         content_div = (
             page_soup.find("div", class_="simple-page")
             or page_soup.find("article")
@@ -114,11 +125,11 @@ def parse_csn(base_url=DEFAULT_BASE_URL, output_dir=DEFAULT_OUTPUT_DIR):
         if not content_div:
             continue
 
-        # Удаляем лишние кнопки навигации следующая/предыдущая глава для чистоты книги
+        # Remove next and previous chapter buttons from the saved book.
         for nav in content_div.find_all("div", class_="csdd-menu-nav"):
             nav.decompose()
 
-        # Собираем список картинок для скачивания
+        # Collect the image URLs to download.
         image_tasks = []
         for img in content_div.find_all("img"):
             img_src = img.get("src")
@@ -128,14 +139,14 @@ def parse_csn(base_url=DEFAULT_BASE_URL, output_dir=DEFAULT_OUTPUT_DIR):
 
         chapters_data.append((idx, link, content_div, image_tasks))
 
-    # Пул параллельного скачивания картинок для ускорения
+    # Download images in parallel to save time.
     all_image_tasks = []
     for idx, link, content_div, image_tasks in chapters_data:
         for img_tag, full_img_url in image_tasks:
             all_image_tasks.append((img_tag, full_img_url))
 
-    print(f"\nВсего найдено картинок во всех главах: {len(all_image_tasks)}")
-    print("Скачивание картинок...")
+    print(f"\nVisās nodaļās atrasto attēlu skaits: {len(all_image_tasks)}")
+    print("Lejupielādē attēlus...")
 
     unique_urls = list({url for _, url in all_image_tasks})
     url_to_local_path = {}
@@ -144,20 +155,20 @@ def parse_csn(base_url=DEFAULT_BASE_URL, output_dir=DEFAULT_OUTPUT_DIR):
         local_path = download_file(url, img_dir)
         return url, local_path
 
-    # Скачиваем до 10 картинок параллельно
+    # Download up to 10 images at a time.
     with ThreadPoolExecutor(max_workers=10) as executor:
         for url, local_path in executor.map(fetch_img, unique_urls):
             if local_path:
                 url_to_local_path[url] = os.path.relpath(local_path, output_dir)
 
-    print(f"Успешно скачано/проверено уникальных картинок: {len(url_to_local_path)}")
+    print(f"Veiksmīgi lejupielādēto vai pārbaudīto unikālo attēlu skaits: {len(url_to_local_path)}")
 
-    # Подменяем ссылки на картинки в HTML
+    # Update image links in the HTML.
     for img_tag, full_img_url in all_image_tasks:
         if full_img_url in url_to_local_path:
             img_tag["src"] = url_to_local_path[full_img_url]
 
-    # Стили для красивого отображения книги
+    # Add styles to make the saved book easy to read.
     book_style = """
     <style>
         body {
@@ -233,25 +244,25 @@ def parse_csn(base_url=DEFAULT_BASE_URL, output_dir=DEFAULT_OUTPUT_DIR):
     </style>
     """
 
-    # Формируем оглавление
-    toc_html = "<div class='toc'><h2>Содержание / Satura rādītājs</h2><ul>"
+    # Build the table of contents.
+    toc_html = "<div class='toc'><h2>Satura rādītājs</h2><ul>"
     for idx, link, content_div, _ in chapters_data:
         h1 = content_div.find(["h1", "h2", "h3"])
-        title = h1.get_text(strip=True) if h1 else f"Раздел {idx}"
+        title = h1.get_text(strip=True) if h1 else f"Nodaļa {idx}"
         toc_html += f"<li><a href='#chapter-{idx}'>{title}</a></li>"
     toc_html += "</ul></div>"
 
     full_html_content = (
         "<!DOCTYPE html><html><head><meta charset='utf-8'>"
         "<meta name='viewport' content='width=device-width, initial-scale=1.0'>"
-        f"<title>CSN Materials</title>{book_style}</head><body><div class='container'>"
+        f"<title>CSN materiāli</title>{book_style}</head><body><div class='container'>"
         "<h1>Ceļu satiksmes noteikumi (CSN)</h1>"
         f"{toc_html}"
     )
 
     for idx, link, content_div, _ in chapters_data:
         full_html_content += f"<hr class='chapter-divider' id='chapter-{idx}'>"
-        full_html_content += f"<div class='chapter-header'>Раздел {idx} &bull; <a href='{link}' target='_blank'>Оригинал</a></div>"
+        full_html_content += f"<div class='chapter-header'>Nodaļa {idx} &bull; <a href='{link}' target='_blank'>Atvērt oriģinālu</a></div>"
         full_html_content += str(content_div)
 
     full_html_content += "</div></body></html>"
@@ -260,22 +271,22 @@ def parse_csn(base_url=DEFAULT_BASE_URL, output_dir=DEFAULT_OUTPUT_DIR):
     with open(output_html_path, "w", encoding="utf-8") as f:
         f.write(full_html_content)
 
-    print(f"\n Готово! Все материалы выкачаны в папку '{output_dir}'.")
-    print(f"Главная книга сохранена в: {output_html_path}")
+    print(f"\nGatavs! Materiāli ir lejupielādēti mapē '{output_dir}'.")
+    print(f"Galvenā grāmata saglabāta šeit: {output_html_path}")
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Парсер материалов CSN")
+    parser = LatvianArgumentParser(description="CSN materiālu parsētājs")
     parser.add_argument(
         "--lang",
         choices=["lv", "ru", "all"],
         default="lv",
-        help="Язык материалов: lv (по умолчанию), ru или all",
+        help="Materiālu valoda: lv (pēc noklusējuma), ru vai all",
     )
     parser.add_argument(
         "--output",
         default=DEFAULT_OUTPUT_DIR,
-        help="Папка для сохранения (по умолчанию: csn_materials)",
+        help="Saglabāšanas mape (pēc noklusējuma: csn_materials)",
     )
     args = parser.parse_args()
 
@@ -290,12 +301,12 @@ def main():
             output_dir=f"{args.output}_ru",
         )
     elif args.lang == "all":
-        print("--- Скачивание на латышском языке ---")
+        print("--- Lejupielādē materiālus latviešu valodā ---")
         parse_csn(
             base_url="https://credoautoprieks.lv/noderigi/mcibu-materiali/csn/",
             output_dir=f"{args.output}_lv",
         )
-        print("\n--- Скачивание на русском языке ---")
+        print("\n--- Lejupielādē materiālus krievu valodā ---")
         parse_csn(
             base_url="https://credoautoprieks.lv/ru/noderigi/mcibu-materiali/csn/",
             output_dir=f"{args.output}_ru",

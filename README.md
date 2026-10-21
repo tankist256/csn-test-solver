@@ -1,26 +1,24 @@
-# CSDD Exam Test Solver
+# CSDD Theory Test Solver
 
-Локальный тренажёр и поисковая шпаргалка по теории CSDD / CredoAutoprieks для категории B в Латвии. Проект помогает искать вопросы, тренироваться без подсказок и собирать собственную базу вопросов с официального сайта CSDD.
+A local question bank and study tool for CSDD / CredoAutoprieks category B theory tests in Latvia. Search questions, practise without seeing answers, and collect questions from the official CSDD site. The website interface is in Latvian, and the source questions and answers are kept in Latvian.
 
-> Это не официальный сервис CSDD. Перед экзаменом сверяйте важные правила с актуальными официальными материалами.
+> This is not an official CSDD service. Before your exam, check important rules against current official materials.
 
-## Что умеет
+## Features
 
-- искать вопрос или вариант ответа, в том числе без латышских диакритических знаков: `atrums` найдёт `ātrums`;
-- показывать изображения, схемы и видео ситуаций;
-- работать в двух режимах: «Шпаргалка» показывает только проверенные ответы, «Тренажёр» скрывает их до выбора;
-- сохранять избранные вопросы в браузере;
-- на телефоне просматривать шесть вопросов на странице в сетке 2 × 3 с видимыми правильными ответами в режиме «Шпаргалка»; на компьютере видеть полноразмерные карточки;
-- смотреть лёгкие превью изображений и загружать видео только по нажатию;
-- пополнять базу через кнопку **«Пополнить базу»**; на Azure сбор выполняет компьютер-помощник, когда он включён.
+- Search question and answer text, including searches without Latvian diacritics. For example, `atrums` finds `ātrums`.
+- View road diagrams, images, and videos.
+- Use two modes: the answer mode shows verified answers, while practice mode hides them until you choose an option.
+- Save favourite questions in the browser.
+- On phones, view six questions per page in a 2 × 3 grid. Verified answers are visible in answer mode. On computers, questions appear as full-size cards.
+- View small WebP image previews. Videos load only after you press play.
+- Add questions from the site. On Azure, a helper computer collects them while it is online.
 
-Правильный вариант появляется зелёным только после проверки по официальному просмотру ошибок CSDD. Непроверенный ответ намеренно не показывается как правильный.
+An answer is marked as correct only after it is checked against the official CSDD review page. An answer that has not been checked is not shown as correct.
 
-Интерфейс управления — на русском языке, сами вопросы и варианты ответов сохранены на латышском, как в исходном тесте.
+## Quick start
 
-## Быстрый запуск
-
-Нужен Python 3.10 или новее и доступ в интернет только для первого сбора вопросов.
+You need Python 3.10 or later. Internet access is needed to collect questions.
 
 ```bash
 git clone git@github.com:tankist256/csn-test-solver.git
@@ -30,84 +28,95 @@ python3 -m venv .venv
 .venv/bin/python solver/serve.py
 ```
 
-Откройте в браузере [http://localhost:8080](http://localhost:8080).
+Open [http://localhost:8080](http://localhost:8080) in a browser.
 
-Чтобы открыть сайт с телефона в той же Wi-Fi сети, используйте адрес `http://<IP-компьютера>:8080`, который сервер покажет в терминале.
+To open the site on a phone on the same Wi-Fi network, use `http://<computer-IP>:8080`. The server prints the computer's address in the terminal.
 
-Можно открыть `solver/index.html` двойным кликом, но тогда будет доступен только просмотр уже собранной базы: кнопка пополнения не сможет запустить Python-сборщик.
+You can also open `solver/index.html` directly. This lets you view the question bank already on your computer, but the site cannot start the Python collector without the server.
 
-## Как получить вопросы и ответы
+## Collect questions
 
-После запуска через `solver/serve.py` нажмите **«Пополнить базу»** в шапке сайта:
+Start `solver/serve.py`, then use the question collection button at the top of the site:
 
-1. Выберите количество тестов — один тест содержит 30 вопросов.
-2. Нажмите **«Запустить сбор»** и дождитесь сообщения о завершении.
-3. Страница сама обновит базу.
+1. Choose how many tests to collect. One test contains 30 questions.
+2. Start the collection and wait for the completion message.
+3. The page reloads the question bank automatically.
 
-Для первого запуска достаточно 1–5 тестов. Чем больше прогонов, тем больше шанс собрать разные ситуации.
+For a first run, 1–5 tests are usually enough. More runs may collect more road situations.
 
-На публичном сайте запуск сборщика доступен только с ключом администратора. Задайте переменную окружения `CSN_COLLECTOR_TOKEN` перед запуском сервера (для Docker Compose — в `.env`, строка `CSN_COLLECTOR_TOKEN=ваш_длинный_случайный_ключ`), затем введите тот же ключ в окне пополнения базы. Без ключа сбор доступен только при прямом локальном запуске `serve.py`; через публичный адрес и Docker-порт кнопка скрыта. Статус и журнал сборщика защищены тем же правилом.
+On a public site, question collection requires an administrator token. Set `CSN_COLLECTOR_TOKEN` before starting the server. With Docker Compose, add it to `.env`, for example `CSN_COLLECTOR_TOKEN=your_long_random_key`, then enter the same token in the collection dialog. Without a token, collection is available only when `serve.py` runs directly on the local computer. The public site hides the collection button and protects the status and log.
 
-Случайный ключ можно получить командой `python3 -c 'import secrets; print(secrets.token_urlsafe(32))'`. Для публичного сайта используйте HTTPS.
+Create a random token with:
 
-Для компактных карточек создаются WebP-превью в `solver/media/thumbs/`. При первом запуске сервер подготовит превью для уже собранных вопросов; полный размер открывается по нажатию. Для генерации нужен Pillow из `requirements.txt`.
+```bash
+python3 -c 'import secrets; print(secrets.token_urlsafe(32))'
+```
 
-| Тестов | Вопросов будет обработано | Примерное время |
+Use HTTPS for a public site.
+
+The server creates WebP previews in `solver/media/thumbs/`. On startup, it prepares previews for questions already collected. The full-size image opens when selected. Pillow from `requirements.txt` is needed to create previews.
+
+| Tests | Questions processed | Approximate time |
 | ---: | ---: | --- |
-| 1 | 30 | 15–25 секунд |
-| 5 | 150 | 2–3 минуты |
-| 10 | 300 | 3–5 минут |
-| 20 | 600 | 6–9 минут |
-| 50 | 1 500 | 15–23 минуты |
+| 1 | 30 | 15–25 seconds |
+| 5 | 150 | 2–3 minutes |
+| 10 | 300 | 3–5 minutes |
+| 20 | 600 | 6–9 minutes |
+| 50 | 1,500 | 15–23 minutes |
 
-Время зависит от скорости сайта CSDD и загрузки новых изображений/видео.
+The time depends on the CSDD site and on whether new images or videos need to be downloaded.
 
-## Почему после клонирования нет готовой базы
+You can also run the collector from a terminal:
 
-Файлы `solver/questions.json`, `solver/questions.js`, `solver/media/` и `csn_materials*/` создаются на вашем компьютере и намеренно исключены из Git. Это объёмные, регулярно меняющиеся данные. Запустите сбор через кнопку в интерфейсе — и они появятся локально.
+```bash
+# Collect 20 tests, with 30 questions in each test.
+.venv/bin/python solver/collector.py --rounds 20
 
-Они не попадут в ваш коммит случайно: правила уже записаны в `.gitignore`.
+# Keep collecting until you press Ctrl+C.
+.venv/bin/python solver/collector.py --loop
+```
 
-## Структура проекта
+The collector checks answers against the official CSDD review page and links them to the question, answer options, and related media. Different road situations can have the same question and answers, so the media is part of the match. If the review page cannot be read or the full error list cannot be checked, that test is discarded. On a later run, existing answers are checked again and updated when needed. When a corrected collector first runs, older answers are marked as unverified until CSDD checks them again.
 
-| Путь | Назначение |
+A successful run updates `solver/questions.json` and `solver/questions.js`.
+
+## Why the question bank is not included
+
+The files `solver/questions.json`, `solver/questions.js`, `solver/media/`, and `csn_materials*/` are created on your computer and excluded from Git. They contain large, changing data. Run collection from the site to create them locally.
+
+These paths are listed in `.gitignore` to help prevent generated data from being added to a commit by mistake.
+
+## Project files
+
+| Path | Purpose |
 | --- | --- |
-| `solver/index.html` | страница тренажёра |
-| `solver/app.js` и `solver/style.css` | логика и оформление интерфейса |
-| `solver/serve.py` | локальный веб-сервер и API кнопки пополнения |
-| `solver/collector.py` | сбор вопросов, ответов и медиа с CSDD |
-| `solver/questions.json` | ваша локальная база вопросов, создаётся сборщиком |
-| `solver/media/` | локальные картинки и видео, создаются сборщиком |
-| `parser.py` | отдельный сборщик текстовых материалов CSN/ПДД |
-| `docker-compose.yml` | запуск проекта через Docker |
+| `solver/index.html` | Website page |
+| `solver/app.js` and `solver/style.css` | Website behavior and appearance |
+| `solver/serve.py` | Local web server and collection API |
+| `solver/collector.py` | Collects questions, answers, and media from CSDD |
+| `solver/questions.json` | Local question bank created by the collector |
+| `solver/media/` | Local images and videos created by the collector |
+| `parser.py` | Separate collector for written CSN materials |
+| `docker-compose.yml` | Runs project services with Docker |
 
-Подробности о возможностях сборщика и ручном запуске — в [solver/README.md](solver/README.md).
+See [solver/README.md](solver/README.md) for details about the question collector. See [deploy/README.md](deploy/README.md) for Azure setup and checks.
 
 ## Docker
 
-Если установлен Docker:
+If Docker is installed, run:
 
 ```bash
 docker compose up --build solver
 ```
 
-Затем откройте [http://localhost:8080](http://localhost:8080). Чтобы остановить сервер, нажмите `Ctrl+C`.
+Then open [http://localhost:8080](http://localhost:8080). Press `Ctrl+C` to stop the server.
 
-## Публикация на Azure VM
+## Azure deployment
 
-После однократной настройки VM обновления `main` из GitHub автоматически
-забираются сервером и применяются к контейнеру сайта. База вопросов и медиа
-остаются на диске VM. Инструкция по настройке и проверке — в
-[deploy/README.md](deploy/README.md).
+After the one-time setup, the VM checks GitHub for updates to `main` and applies them to the website container. The question bank and media stay on the VM. See [deploy/README.md](deploy/README.md) for setup and verification steps.
 
-Тестовый сайт CSDD не отвечает с Azure VM, поэтому кнопка на публичном сайте
-передаёт задание компьютеру-помощнику. Компьютер должен быть включён и
-подключён к интернету. Ход сбора и результат отображаются в окне сайта;
-после сбора база автоматически синхронизируется с Azure. Если компьютер
-выключен, сайт сообщает об этом до запуска. Ручная команда
-`./deploy/collect-and-sync.sh 5` остаётся доступной. Обычный `git push`
-обновляет код, но не базу вопросов.
+When the Azure VM cannot reach the CSDD test site, the public site can send collection jobs to a helper computer. The computer must be online and connected to the internet. The site shows the job status and result, and the question bank is synced to Azure after collection. If the computer is offline, the site reports this before a job starts. You can also run `./deploy/collect-and-sync.sh 5` by hand. A normal `git push` updates code, but it does not update the question bank.
 
-## Лицензия и авторство
+## License and credit
 
-Первоначальный автор проекта — [tankist256](LICENSE). Форки и изменения допустимы при сохранении авторства и отметки об изменениях; полные условия — в [LICENSE](LICENSE).
+The original project author is [tankist256](LICENSE). Forks and changes are allowed when author credit and a note about changes are kept. See [LICENSE](LICENSE) for the full terms.

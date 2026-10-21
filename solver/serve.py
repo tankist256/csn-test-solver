@@ -32,7 +32,7 @@ collector_state = {
     "running": False,
     "rounds": 0,
     "completed_rounds": 0,
-    "message": "Сборщик готов к запуску.",
+    "message": "Jautājumu ievācējs ir gatavs darbam.",
     "log": [],
     "returncode": None,
     "started_at": None,
@@ -84,16 +84,16 @@ def run_collector(rounds):
             with collector_lock:
                 collector_state["log"].append(line)
                 collector_state["log"] = collector_state["log"][-100:]
-                round_match = re.search(r"Раунд (\d+)(?:/\d+)? завершен", line)
+                round_match = re.search(r"Kārta (\d+)(?:/\d+)? pabeigta", line)
                 if round_match:
                     collector_state["completed_rounds"] = int(round_match.group(1))
                     collector_state["message"] = line
-                elif "CSDD недоступен из этой сети" in line:
+                elif "CSDD nav sasniedzams no šī tīkla" in line:
                     collector_state["message"] = (
-                        "CSDD не отвечает с этого сервера. "
-                        "Запустите сбор и синхронизацию с компьютера."
+                        "CSDD neatbild no šī servera. "
+                        "Sāciet ievākšanu un sinhronizāciju datorā."
                     )
-                elif "Ошибка раунда" in line:
+                elif "Kārtas kļūda" in line:
                     collector_state["message"] = line
 
         returncode = process.wait()
@@ -103,23 +103,23 @@ def run_collector(rounds):
             if returncode == 0 and collector_state["completed_rounds"] == rounds:
                 collector_state["returncode"] = 0
                 collector_state["message"] = (
-                    f"Готово: обработано тестов {collector_state['completed_rounds']} из {rounds}."
+                    f"Ievākšana pabeigta. Pabeigto testu skaits: {collector_state['completed_rounds']} no {rounds}."
                 )
             elif returncode == 0:
                 collector_state["returncode"] = 2
                 collector_state["message"] = (
-                    f"Завершено частично: обработано тестов {collector_state['completed_rounds']} из {rounds}."
+                    f"Ievākšana pabeigta daļēji. Pabeigto testu skaits: {collector_state['completed_rounds']} no {rounds}."
                 )
             else:
                 collector_state["returncode"] = returncode
-                if not any("CSDD недоступен из этой сети" in line for line in collector_state["log"]):
-                    collector_state["message"] = f"Сборщик завершился с кодом {returncode}."
-    except Exception as error:
+                if not any("CSDD nav sasniedzams no šī tīkla" in line for line in collector_state["log"]):
+                    collector_state["message"] = f"Jautājumu ievākšana beidzās ar kodu {returncode}."
+    except Exception:
         with collector_lock:
             collector_state["running"] = False
             collector_state["returncode"] = -1
             collector_state["finished_at"] = utc_now()
-            collector_state["message"] = f"Не удалось запустить сборщик: {error}"
+            collector_state["message"] = "Neizdevās palaist jautājumu ievācēju. Pārbaudiet servera iestatījumus."
             collector_state["log"].append(collector_state["message"])
 
 
@@ -166,7 +166,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         if self.can_use_collector():
             return True
         self.send_json(
-            {"error": "Неверный ключ доступа." if COLLECTOR_TOKEN else "Сбор доступен только локально."},
+            {"error": "Nederīga piekļuves atslēga." if COLLECTOR_TOKEN else "Ievākšana pieejama tikai lokāli."},
             401 if COLLECTOR_TOKEN else 403,
         )
         return False
@@ -189,7 +189,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
     def do_POST(self):
         if self.path.split("?", 1)[0] != "/api/collector/start":
-            self.send_json({"error": "Маршрут не найден."}, 404)
+            self.send_json({"error": "Pieprasītais ceļš nav atrasts."}, 404)
             return
         if not self.require_collector_access():
             return
@@ -197,13 +197,14 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         try:
             content_length = int(self.headers.get("Content-Length", "0"))
             if not 0 <= content_length <= 4096:
-                raise ValueError("Недопустимый размер запроса")
+                raise ValueError("Pieprasījuma izmērs nav atļauts.")
             payload = json.loads(self.rfile.read(content_length) or b"{}")
             rounds = int(payload.get("rounds", 1))
             if not 1 <= rounds <= 50:
-                raise ValueError("Количество тестов должно быть от 1 до 50")
+                raise ValueError("Testu skaitam jābūt no 1 līdz 50.")
         except (ValueError, TypeError, json.JSONDecodeError) as error:
-            self.send_json({"error": str(error)}, 400)
+            message = "Pieprasījuma dati nav derīgi." if isinstance(error, json.JSONDecodeError) else str(error)
+            self.send_json({"error": message}, 400)
             return
 
         if REMOTE_WORKER:
@@ -217,14 +218,14 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
         with collector_lock:
             if collector_state["running"]:
-                self.send_json({"error": "Сбор уже выполняется."}, 409)
+                self.send_json({"error": "Jautājumu ievākšana jau notiek."}, 409)
                 return
             collector_state.update(
                 {
                     "running": True,
                     "rounds": rounds,
                     "completed_rounds": 0,
-                    "message": f"Запущен сбор: {rounds} тест(ов).",
+                    "message": f"Sākta jautājumu ievākšana. Plānots testu skaits: {rounds}.",
                     "log": [],
                     "returncode": None,
                     "started_at": utc_now(),
@@ -255,16 +256,16 @@ def main():
     local_ip = get_local_ip()
     with ThreadingServer(("", PORT), Handler) as httpd:
         print("=" * 60)
-        print("  CSDD EXAM TEST SOLVER ЗАПУЩЕН!")
-        print(f"  • На этом компьютере:  http://localhost:{PORT}")
-        print("  • На планшете / телефоне в той же сети Wi-Fi:")
+        print("  CSDD TEORIJAS TESTU RĪKS IR PALAISTS!")
+        print(f"  • Šajā datorā: http://localhost:{PORT}")
+        print("  • Planšetē vai tālrunī tajā pašā Wi-Fi tīklā:")
         print(f"                         http://{local_ip}:{PORT}")
         print("=" * 60)
-        print("Для остановки нажмите Ctrl + C")
+        print("Lai apturētu serveri, nospiediet Ctrl + C")
         try:
             httpd.serve_forever()
         except KeyboardInterrupt:
-            print("\nСервер остановлен.")
+            print("\nServeris ir apturēts.")
 
 
 if __name__ == "__main__":

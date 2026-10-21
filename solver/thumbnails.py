@@ -14,7 +14,7 @@ def generate_missing_thumbnails(questions=None):
     try:
         from PIL import Image, ImageOps
     except ImportError:
-        print("[!] Pillow не установлен: превью будут заменены оригинальными изображениями.")
+        print("[!] Pillow nav instalēts. Priekšskatījumu vietā tiks rādīti oriģinālie attēli.")
         return 0
 
     if questions is None:
@@ -24,7 +24,7 @@ def generate_missing_thumbnails(questions=None):
             with DB_PATH.open(encoding="utf-8") as database:
                 questions = json.load(database)
         except (OSError, ValueError) as error:
-            print(f"[!] Не удалось прочитать базу для превью: {error}")
+            print(f"[!] Neizdevās nolasīt priekšskatījumu datubāzi: {error}")
             return 0
 
     THUMB_DIR.mkdir(parents=True, exist_ok=True)
@@ -52,9 +52,9 @@ def generate_missing_thumbnails(questions=None):
             created += 1
         except Exception as error:
             temporary.unlink(missing_ok=True)
-            print(f"[!] Не удалось создать превью {source.name}: {error}")
+            print(f"[!] Neizdevās izveidot priekšskatījumu {source.name}: {error}")
     if created:
-        print(f"[*] Создано превью: {created}")
+        print(f"[*] Izveidoti priekšskatījumi: {created}")
     return created
 
 

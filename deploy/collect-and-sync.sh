@@ -8,7 +8,7 @@ REMOTE=${CSN_AZURE_REMOTE:-tankist256@20.91.139.58}
 REMOTE_DIR=/home/tankist256/csn-test-solver
 
 usage() {
-  echo "Usage: $0 [1..50 | --sync-only]" >&2
+  echo "Lietojums: $0 [1..50 | --sync-only]" >&2
   exit 2
 }
 
@@ -18,8 +18,8 @@ if [[ "$mode" != --sync-only ]]; then
   (( mode >= 1 && mode <= 50 )) || usage
 fi
 
-[[ -x "$PYTHON" ]] || { echo "Python environment missing: $PYTHON" >&2; exit 1; }
-[[ -r "$SSH_KEY" ]] || { echo "Azure SSH key missing: $SSH_KEY" >&2; exit 1; }
+[[ -x "$PYTHON" ]] || { echo "Python vide nav atrasta: $PYTHON" >&2; exit 1; }
+[[ -r "$SSH_KEY" ]] || { echo "Azure SSH atslēga nav atrasta: $SSH_KEY" >&2; exit 1; }
 
 ssh_args=(ssh -F /dev/null -i "$SSH_KEY" -o BatchMode=yes
   -o StrictHostKeyChecking=yes
@@ -30,7 +30,7 @@ printf -v rsync_ssh '%q ' "${ssh_args[@]}"
 cd "$ROOT_DIR"
 exec 9>"$ROOT_DIR/.collector-sync.lock"
 if ! flock -n 9; then
-  echo "Another collection or sync is already running on this computer." >&2
+  echo "Datorā jau notiek ievākšana vai sinhronizācija." >&2
   exit 1
 fi
 "${ssh_args[@]}" "$REMOTE" "test -d '$REMOTE_DIR/solver/media' && test -f '$REMOTE_DIR/deploy/apply-data-sync.py'"
@@ -44,8 +44,8 @@ import json
 from pathlib import Path
 questions = json.loads(Path("solver/questions.json").read_text(encoding="utf-8"))
 if not isinstance(questions, list) or not questions:
-    raise SystemExit("Local question database is missing or empty")
-print(f"Local questions ready to sync: {len(questions)}")
+    raise SystemExit("Vietējā jautājumu datubāze trūkst vai ir tukša")
+print(f"Vietējā datubāze ir gatava sinhronizācijai: {len(questions)} jautājumi")
 PY
 
 # Send media first so every reference in the new database resolves.
@@ -58,5 +58,5 @@ rsync -a -e "$rsync_ssh" solver/questions.json solver/questions.js "$REMOTE:$sta
 
 local_hash=$(sha256sum solver/questions.json | cut -d ' ' -f1)
 remote_hash=$("${ssh_args[@]}" "$REMOTE" "sha256sum '$REMOTE_DIR/solver/questions.json'" | cut -d ' ' -f1)
-[[ "$local_hash" == "$remote_hash" ]] || { echo "Question database checksum differs on Azure" >&2; exit 1; }
-echo "Azure question database matches the local copy. Refresh the site to see updates."
+[[ "$local_hash" == "$remote_hash" ]] || { echo "Azure jautājumu datubāzes kontrolsumma atšķiras" >&2; exit 1; }
+echo "Azure datubāze atbilst vietējai kopijai. Atjauniniet lapu, lai redzētu izmaiņas."

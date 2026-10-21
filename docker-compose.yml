@@ -1,5 +1,5 @@
 services:
-  # Главный сервис: Поисковик и шпаргалка по билетам (http://localhost:8080)
+  # Main service: the question search and answer page at http://localhost:8080.
   solver:
     build: .
     container_name: csn-solver
@@ -12,7 +12,7 @@ services:
       - ./solver:/app/solver
     restart: unless-stopped
 
-  # Сервис фонового сбора новых вопросов из CSDD тестов
+  # Background service that collects questions from CSDD tests.
   collector:
     build: .
     container_name: csn-collector
@@ -20,7 +20,7 @@ services:
       - ./solver:/app/solver
     command: ["python", "solver/collector.py", "--rounds", "20"]
 
-  # Парсер исходного текста правил (CSN/ПДД Латвии)
+  # Parser for the written Latvian road traffic rules.
   parser-csn:
     build: .
     container_name: csn-parser

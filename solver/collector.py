@@ -33,6 +33,17 @@ headers = {
 CSN_REQUEST_TIMEOUT = (8, 30)
 
 
+class LatvianArgumentParser(argparse.ArgumentParser):
+    def format_help(self):
+        help_text = super().format_help()
+        return (
+            help_text.replace("usage:", "Lietojums:", 1)
+            .replace("options:", "Opcijas:", 1)
+            .replace("optional arguments:", "Opcijas:", 1)
+            .replace("show this help message and exit", "Parāda šo palīdzību un iziet", 1)
+        )
+
+
 class TimedSession(requests.Session):
     """Bound every CSDD request so an unreachable host cannot hang a batch."""
 
@@ -50,8 +61,8 @@ def load_database():
         try:
             with open(DB_JSON_PATH, "r", encoding="utf-8") as f:
                 return json.load(f)
-        except Exception as e:
-            print(f"[!] Ошибка чтения {DB_JSON_PATH}: {e}")
+        except Exception:
+            print("[!] Neizdevās nolasīt jautājumu datubāzi.")
     return []
 
 
@@ -59,7 +70,7 @@ def save_database(questions):
     with open(DB_JSON_PATH, "w", encoding="utf-8") as f:
         json.dump(questions, f, ensure_ascii=False, indent=2)
 
-    # Сохраняем также questions.js для прямого открытия в браузере без веб-сервера
+    # Save questions.js too, so the page can open without a web server.
     js_content = "window.CSDD_QUESTIONS = " + json.dumps(questions, ensure_ascii=False, indent=2) + ";\n"
     with open(DB_JS_PATH, "w", encoding="utf-8") as f:
         f.write(js_content)
@@ -104,8 +115,8 @@ def download_media(session, url):
                 for chunk in r.iter_content(32 * 1024):
                     f.write(chunk)
             return rel_path
-    except Exception as e:
-        print(f" [!] Ошибка скачивания {url}: {e}")
+    except Exception:
+        print(" [!] Neizdevās lejupielādēt multivides failu.")
     return url
 
 
@@ -164,13 +175,13 @@ def match_review_question(soup, session_questions):
 
 
 def run_single_session(session):
-    # 0. Сброс куков для новой сессии
+    # 0. Clear cookies for the new session.
     session.cookies.clear()
     
-    # 1. Стартовая страница
+    # 1. Open the start page.
     session.get(f"{BASE_URL}/", verify=False)
 
-    # 2. Выбор категории B (ext_id=52, LAT)
+    # 2. Select category B (ext_id=52, LAT).
     r_kat = session.post(
         f"{BASE_URL}/sbm_kat",
         data={"perform": "confirm", "ext_id": "52", "valoda": "LAT"},
@@ -179,7 +190,7 @@ def run_single_session(session):
     if r_kat.status_code != 200:
         return []
 
-    # 3. Прохождение 3 пробных вопросов
+    # 3. Answer the three sample questions.
     trials = [("17552", "52634"), ("761", "2264"), ("17335", "51986")]
     for exj_id, ans_id in trials:
         session.post(
@@ -193,14 +204,14 @@ def run_single_session(session):
             verify=False,
         )
 
-    # 4. Переход к первому реальному вопросу
+    # 4. Go to the first exam question.
     r = session.get(f"{BASE_URL}/LAT", verify=False)
     if "location.href" in r.text:
         r = session.get(f"{BASE_URL}/LAT", verify=False)
 
     session_questions = {}
 
-    # 5. Проходим 30 вопросов экзамена
+    # 5. Answer the 30 exam questions.
     for q_idx in range(30):
         soup = BeautifulSoup(r.text, "html.parser")
         form = soup.find("form", id="atb")
@@ -228,7 +239,7 @@ def run_single_session(session):
         if not options:
             break
 
-        # Картинка
+        # Handle an image.
         img_url = ""
         img_div = soup.find("div", class_="lightbox-image")
         if img_div and "background-image:url(" in img_div.get("style", ""):
@@ -236,7 +247,7 @@ def run_single_session(session):
         elif soup.find("img", class_="lightbox-image"):
             img_url = soup.find("img", class_="lightbox-image").get("src", "")
 
-        # Видео
+        # Handle a video.
         video_url = ""
         video_tag = soup.find("video")
         if video_tag:
@@ -247,7 +258,7 @@ def run_single_session(session):
         img_url = urljoin(BASE_URL, img_url) if img_url else ""
         video_url = urljoin(BASE_URL, video_url) if video_url else ""
 
-        # Выбираем первый вариант
+        # Select the first answer.
         selected_opt = options[0]["id"]
 
         session_questions[eceja_id] = {
@@ -259,7 +270,7 @@ def run_single_session(session):
             "correct_id": None,
         }
 
-        # Отправляем ответ
+        # Submit the answer.
         pdata = {
             "perform": "confirm",
             "eceja_id": eceja_id,
@@ -280,76 +291,76 @@ def run_single_session(session):
     if not session_questions:
         return []
 
-    # 6. Открываем /LAT/parskats для разбора ошибок
+    # 6. Open /LAT/parskats to review incorrect answers.
     r_par = session.get(f"{BASE_URL}/LAT/parskats", verify=False)
     if r_par.status_code != 200:
-        raise RuntimeError(f"CSDD не отдал просмотр ответов: HTTP {r_par.status_code}")
+        raise RuntimeError(f"CSDD neatvēra atbilžu pārskatu: HTTP {r_par.status_code}")
     cur_page = r_par
     visited_ids = set()
     reviewed_question_ids = set()
 
     while True:
         if cur_page.status_code != 200:
-            raise RuntimeError(f"Ошибка страницы просмотра ответов: HTTP {cur_page.status_code}")
+            raise RuntimeError(f"Kļūda atbilžu pārskata lapā: HTTP {cur_page.status_code}")
         soup_par = BeautifulSoup(cur_page.text, "html.parser")
         q_h3 = soup_par.find("h3")
         if not q_h3:
-            raise RuntimeError("Не удалось прочитать вопрос на странице проверки ответов; раунд не сохранён")
+            raise RuntimeError("Neizdevās nolasīt jautājumu atbilžu pārbaudes lapā; kārta netika saglabāta.")
 
         sq = match_review_question(soup_par, session_questions)
         if sq is None:
             page_prompt = normalize_question_text(q_h3.get_text(" ", strip=True))
             raise RuntimeError(
-                "Не удалось однозначно связать вопрос со страницей проверки CSDD "
-                f"(текст: {page_prompt!r}); раунд не сохранён"
+                "Neizdevās nepārprotami sasaistīt jautājumu ar CSDD pārbaudes lapu "
+                f"(teksts: {page_prompt!r}); kārta netika saglabāta."
             )
         question_key = next(key for key, value in session_questions.items() if value is sq)
         if question_key in reviewed_question_ids:
-            raise RuntimeError("CSDD повторил страницу ошибки; раунд не сохранён")
+            raise RuntimeError("CSDD atkārtoti parādīja to pašu kļūdas lapu; kārta netika saglabāta.")
         reviewed_question_ids.add(question_key)
 
-        # На странице ошибки CSDD помечает официальный ответ классом "pareizi".
+        # CSDD marks the correct answer with the class "pareizi".
         correct_lbl = soup_par.find("label", class_="pareizi")
         if correct_lbl and correct_lbl.find("input"):
             c_id = correct_lbl.find("input")["value"]
             if c_id not in {option["id"] for option in sq["options"]}:
-                raise RuntimeError("Правильный ответ CSDD не совпал с вариантами вопроса; раунд не сохранён")
+                raise RuntimeError("CSDD pareizā atbilde neatbilst jautājuma variantiem; kārta netika saglabāta.")
             if c_id == sq["selected_id"]:
-                raise RuntimeError("Страница ошибки CSDD противоречит выбранному ответу; раунд не сохранён")
+                raise RuntimeError("CSDD kļūdu lapa neatbilst izvēlētajai atbildei; kārta netika saglabāta.")
             sq["correct_id"] = c_id
         else:
-            raise RuntimeError("CSDD не отметил правильный ответ на странице ошибки; раунд не сохранён")
+            raise RuntimeError("CSDD kļūdu lapā nav atzīmējis pareizo atbildi; kārta netika saglabāta.")
 
-        # Переходим строго на СЛЕДУЮЩУЮ ошибку через li.next
+        # Move to the next error with li.next.
         next_li = soup_par.find("li", class_="next")
         if not next_li:
             break
         next_btn = next_li.find("a", class_="jautbtn")
         if not next_btn or not next_btn.get("id_sel"):
-            raise RuntimeError("Не удалось перейти к следующей ошибке CSDD; раунд не сохранён")
+            raise RuntimeError("Neizdevās atvērt nākamo CSDD kļūdu; kārta netika saglabāta.")
         next_id = next_btn["id_sel"]
         if next_id in visited_ids:
-            raise RuntimeError("Обнаружен цикл в списке ошибок CSDD; раунд не сохранён")
+            raise RuntimeError("CSDD kļūdu sarakstā atrasts cikls; kārta netika saglabāta.")
         visited_ids.add(next_id)
         cur_page = session.post(
             f"{BASE_URL}/LAT/parskats", data={"exj_id": next_id}, verify=False
         )
 
-    # 7. Отсутствие ошибки означает, что первый выбранный вариант засчитан.
-    # Это допустимо только после полного, непрерывного чтения списка ошибок.
+    # 7. No error means the first selected answer was correct.
+    # This is valid only after reading the full error list in order.
     for sq in session_questions.values():
         if sq["correct_id"] is None:
             sq["correct_id"] = sq["selected_id"]
         if sq["correct_id"] not in {option["id"] for option in sq["options"]}:
-            raise RuntimeError("Не найден ответ среди вариантов вопроса; раунд не сохранён")
+            raise RuntimeError("Atbilde nav atrasta starp jautājuma variantiem; kārta netika saglabāta.")
 
-    # 8. Скачиваем медиа и форматируем итоговые записи
+    # 8. Download media and prepare the final records.
     final_questions = []
     for sq in session_questions.values():
         local_img = download_media(session, sq["img_url"]) if sq["img_url"] else ""
         local_vid = download_media(session, sq["video_url"]) if sq["video_url"] else ""
 
-        # Находим текст правильного ответа
+        # Find the correct answer text.
         correct_text = ""
         for o in sq["options"]:
             if o["id"] == sq["correct_id"]:
@@ -376,9 +387,9 @@ def run_single_session(session):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="CSDD Question Collector & Bank")
-    parser.add_argument("--rounds", type=int, default=10, help="Количество тестов для прогона (по 30 вопросов каждый)")
-    parser.add_argument("--loop", action="store_true", help="Крутить сбор бесконечно, пока не нажат Ctrl+C")
+    parser = LatvianArgumentParser(description="CSDD jautājumu ievācējs un datubāze")
+    parser.add_argument("--rounds", type=int, default=10, help="Testu skaits vienā reizē (katrā testā ir 30 jautājumi)")
+    parser.add_argument("--loop", action="store_true", help="Atkārtot ievākšanu, līdz tiek nospiests Ctrl+C")
     args = parser.parse_args()
 
     ensure_dirs()
@@ -405,7 +416,7 @@ def main():
             question["verified"] = False
             prior["verified"] = False
         db_map[question["id"]] = question
-    print(f"[*] Загружена текущая база: {len(db_map)} уникальных вопросов.")
+    print(f"[*] Ielādēta pašreizējā datubāze: {len(db_map)} unikāli jautājumi.")
 
     session = TimedSession()
     session.headers.update(headers)
@@ -422,19 +433,19 @@ def main():
             if not args.loop and round_idx > args.rounds:
                 break
 
-            print(f"\n--- Раунд {round_idx}{'' if args.loop else f'/{args.rounds}'}: Запуск теста... ---")
+            print(f"\n--- Kārta {round_idx}{'' if args.loop else f'/{args.rounds}'}: sāk testu... ---")
             t0 = time.time()
             try:
                 round_questions = run_single_session(session)
-            except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as error:
+            except (requests.exceptions.ConnectionError, requests.exceptions.Timeout):
                 print(
-                    "[!] CSDD недоступен из этой сети. Сбор остановлен; "
-                    f"уже сохранённая база не удалена. Подробности: {error}"
+                    "[!] CSDD nav sasniedzams no šī tīkla. Ievākšana apturēta; "
+                    "iepriekšējā datubāze nav dzēsta. Pārbaudiet tīkla savienojumu."
                 )
                 connection_failed = True
                 break
-            except Exception as e:
-                print(f"[!] Ошибка раунда: {e}, пауза 3 сек...")
+            except Exception:
+                print("[!] Neizdevās apstrādāt testu. Mēģināšu vēlreiz pēc 3 sekundēm.")
                 time.sleep(3)
                 continue
 
@@ -451,7 +462,7 @@ def main():
                         q["legacy_id"] = db_map[q["id"]]["legacy_id"]
                     db_map[q["id"]] = q
                     corrected_in_round += 1
-                    print(f"[!] Исправлен ответ: {q['question']} | было: {old_answer} | стало: {q['correct_text']}")
+                    print(f"[!] Labota atbilde: {q['question']} | bija: {old_answer} | tagad: {q['correct_text']}")
                 else:
                     # Refresh option IDs and media URLs even when the answer text is unchanged.
                     if db_map[q["id"]].get("legacy_id"):
@@ -462,17 +473,17 @@ def main():
             completed_rounds += 1
             dt = time.time() - t0
             print(
-                f"[✓] Раунд {round_idx} завершен за {dt:.1f}с. Новых: {new_in_round} | Исправлено: {corrected_in_round} | Всего в базе: {len(db_map)}"
+                f"[✓] Kārta {round_idx} pabeigta {dt:.1f} sekundēs. Jauni jautājumi: {new_in_round} | Labotas atbildes: {corrected_in_round} | Kopā datubāzē: {len(db_map)}"
             )
 
     except KeyboardInterrupt:
-        print("\n[!] Остановлено пользователем.")
+        print("\n[!] Lietotājs apturēja ievākšanu.")
         interrupted = True
 
     print(f"\n==========================================")
-    print(f"ИТОГ: Всего уникальных вопросов в базе: {len(db_map)}")
-    print(f"База сохранена в: {DB_JSON_PATH}")
-    print(f"JS-модуль сохранен в: {DB_JS_PATH}")
+    print(f"KOPSAVILKUMS: Unikālo jautājumu skaits datubāzē: {len(db_map)}")
+    print(f"Datubāze saglabāta: {DB_JSON_PATH}")
+    print(f"JS modulis saglabāts: {DB_JS_PATH}")
     print(f"==========================================")
     if connection_failed or interrupted or (not args.loop and completed_rounds != args.rounds):
         return 2
