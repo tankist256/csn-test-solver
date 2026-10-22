@@ -1,7 +1,13 @@
-import React, { useCallback, useEffect, useRef, useState } from "react";
-import { QuestionMedia } from "./QuestionMedia.jsx";
-import ImageLightbox from "./ImageLightbox.jsx";
-import AdminCollector from "./AdminCollector.jsx";
+import React, {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
+
+import AdminCollector from './AdminCollector.jsx';
+import ImageLightbox from './ImageLightbox.jsx';
+import { QuestionMedia } from './QuestionMedia.jsx';
 
 function messageFor(error) {
   const code = error?.message || error?.error || "";
@@ -82,12 +88,25 @@ export default function AccountPanel() {
     if (!account) throw new Error("unauthorized");
     const local = config.auth_mode === "local";
     if (!local && !client) throw new Error("unauthorized");
-    const token = local ? null : await client.acquireTokenSilent({ account, scopes: config.scopes });
+    let token = null;
+    if (!local) {
+      token = await client.acquireTokenSilent({ account, scopes: config.scopes });
+    }
+
+    const headers = {};
+    if (local) {
+      headers["X-CSN-Request"] = "1";
+    } else {
+      headers.Authorization = `Bearer ${token.accessToken}`;
+    }
+    if (options.body) {
+      headers["Content-Type"] = "application/json";
+    }
+
     const response = await fetch(path, {
       ...options,
       credentials: "same-origin",
-      headers: { ...(local ? { "X-CSN-Request": "1" } : { Authorization: `Bearer ${token.accessToken}` }),
-        ...(options.body ? { "Content-Type": "application/json" } : {}) },
+      headers,
       cache: "no-store",
     });
     const body = await response.json();
@@ -118,7 +137,9 @@ export default function AccountPanel() {
           setAttempts(updatedHistory.items);
         }
       }
-    } catch (failure) { setError(messageFor(failure)); }
+    } catch (failure) {
+      setError(messageFor(failure));
+    }
   }, [request]);
 
   useEffect(() => {
@@ -128,7 +149,11 @@ export default function AccountPanel() {
   useEffect(() => {
     if (!attempt || attempt.status !== "active") return;
     clockOffset.current = Date.parse(attempt.server_time) - Date.now();
-    const tick = () => setSeconds(Math.max(0, Math.ceil((Date.parse(attempt.deadline) - Date.now() - clockOffset.current) / 1000)));
+    const tick = () => {
+      const remainingMilliseconds = Date.parse(attempt.deadline) - Date.now() - clockOffset.current;
+      const remainingSeconds = Math.ceil(remainingMilliseconds / 1000);
+      setSeconds(Math.max(0, remainingSeconds));
+    };
     tick();
     const timer = setInterval(tick, 250);
     return () => clearInterval(timer);
@@ -137,8 +162,11 @@ export default function AccountPanel() {
   useEffect(() => {
     if (seconds !== 0 || attempt?.status !== "active") return;
     const timer = setTimeout(async () => {
-      try { setAttempt(await request(`/api/attempts/${attempt.attempt_id}`)); }
-      catch (failure) { setError(messageFor(failure)); }
+      try {
+        setAttempt(await request(`/api/attempts/${attempt.attempt_id}`));
+      } catch (failure) {
+        setError(messageFor(failure));
+      }
     }, 300);
     return () => clearTimeout(timer);
   }, [seconds, attempt, request]);
@@ -148,7 +176,9 @@ export default function AccountPanel() {
     try {
       const result = await client.loginPopup({ scopes: config.scopes });
       setAccount(result.account);
-    } catch (failure) { setError(messageFor(failure)); }
+    } catch (failure) {
+      setError(messageFor(failure));
+    }
   }
 
   async function submitLocal(event) {
@@ -165,8 +195,11 @@ export default function AccountPanel() {
       if (!response.ok) throw new Error(body.error || "server_error");
       setAccount(body);
       setPassword("");
-    } catch (failure) { setError(messageFor(failure)); }
-    finally { setBusy(false); }
+    } catch (failure) {
+      setError(messageFor(failure));
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function signOut() {
@@ -176,7 +209,10 @@ export default function AccountPanel() {
           method: "POST", credentials: "same-origin", headers: { "X-CSN-Request": "1" },
         });
         if (!response.ok) throw new Error("server_error");
-      } catch (failure) { setError(messageFor(failure)); return; }
+      } catch (failure) {
+        setError(messageFor(failure));
+        return;
+      }
     } else {
       await client.logoutPopup({ account });
     }
@@ -193,8 +229,11 @@ export default function AccountPanel() {
       setAttempt(await request("/api/attempts", {
         method: "POST", body: JSON.stringify({ size }),
       }));
-    } catch (failure) { setError(messageFor(failure)); }
-    finally { setBusy(false); }
+    } catch (failure) {
+      setError(messageFor(failure));
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function answer(option) {
@@ -208,24 +247,37 @@ export default function AccountPanel() {
       if (next.status === "finished") await loadDashboard();
     } catch (failure) {
       setError(messageFor(failure));
-      try { setAttempt(await request(`/api/attempts/${attempt.attempt_id}`)); }
-      catch { /* Keep the last state visible. */ }
-    } finally { setBusy(false); }
+      try {
+        setAttempt(await request(`/api/attempts/${attempt.attempt_id}`));
+      } catch {
+        // Keep the last state visible.
+      }
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function openUser(oid) {
     setBusy(true);
     setRoleMessage("");
-    try { setSelectedUser(await request(`/api/admin/users/${oid}/progress`)); }
-    catch (failure) { setError(messageFor(failure)); }
-    finally { setBusy(false); }
+    try {
+      setSelectedUser(await request(`/api/admin/users/${oid}/progress`));
+    } catch (failure) {
+      setError(messageFor(failure));
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function showAdmin() {
     setBusy(true);
-    try { setUsers((await request("/api/admin/users")).users); }
-    catch (failure) { setError(messageFor(failure)); }
-    finally { setBusy(false); }
+    try {
+      setUsers((await request("/api/admin/users")).users);
+    } catch (failure) {
+      setError(messageFor(failure));
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function changeRole(user) {
@@ -240,13 +292,23 @@ export default function AccountPanel() {
       const updated = await request(`/api/admin/users/${user.oid}/role`, {
         method: "POST", body: JSON.stringify({ is_admin: nextAdmin }),
       });
-      setUsers((current) => current.map((item) => item.oid === user.oid
-        ? { ...item, is_admin: updated.is_admin } : item));
-      setSelectedUser((current) => current?.user.oid === user.oid
-        ? { ...current, user: { ...current.user, is_admin: updated.is_admin } } : current);
+      setUsers((current) => current.map((item) => {
+        if (item.oid !== user.oid) return item;
+        return { ...item, is_admin: updated.is_admin };
+      }));
+      setSelectedUser((current) => {
+        if (current?.user.oid !== user.oid) return current;
+        return {
+          ...current,
+          user: { ...current.user, is_admin: updated.is_admin },
+        };
+      });
       setRoleMessage(nextAdmin ? "Administratora tiesības piešķirtas." : "Administratora tiesības noņemtas.");
-    } catch (failure) { setError(messageFor(failure)); }
-    finally { setRoleBusy(false); }
+    } catch (failure) {
+      setError(messageFor(failure));
+    } finally {
+      setRoleBusy(false);
+    }
   }
 
   if (!config) return null;
@@ -338,9 +400,22 @@ export default function AccountPanel() {
           <p>Jautājumu datubāzes papildināšana, lietotāju rezultāti un piekļuves tiesības.</p>
           <AdminCollector request={request} />
           <button className="btn" type="button" disabled={busy} onClick={showAdmin}>Apskatīt lietotājus</button>
-          {users.map((user) => <div className="account-row" key={user.oid}>
-            <button className="btn" type="button" onClick={() => openUser(user.oid)}>{user.name || user.email || user.oid}</button>
-            <span>{typeof user.is_admin === "boolean" ? `${user.is_admin ? "Administrators" : "Lietotājs"} · ` : ""}{user.total_points} punkti · {user.completed} kvesti</span></div>)}
+          {users.map((user) => {
+            let roleLabel = "";
+            if (typeof user.is_admin === "boolean") {
+              roleLabel = user.is_admin ? "Administrators" : "Lietotājs";
+              roleLabel += " · ";
+            }
+
+            return (
+              <div className="account-row" key={user.oid}>
+                <button className="btn" type="button" onClick={() => openUser(user.oid)}>
+                  {user.name || user.email || user.oid}
+                </button>
+                <span>{roleLabel}{user.total_points} punkti · {user.completed} kvesti</span>
+              </div>
+            );
+          })}
           {selectedUser && <div className="account-detail"><h4>{selectedUser.user.name || selectedUser.user.email}</h4>
             <p>{selectedUser.user.email} · {selectedUser.user.oid}</p>
             {config.auth_mode === "local" && typeof selectedUser.user.is_admin === "boolean" && <div className="account-role-control">

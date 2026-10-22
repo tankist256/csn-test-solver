@@ -1,14 +1,19 @@
-import React from "react";
-import { QuestionMedia } from "./QuestionMedia.jsx";
-import { highlightedParts } from "../utils/search.js";
-import { isCorrectOption } from "../utils/answers.js";
+import React from 'react';
+
+import { isCorrectOption } from '../utils/answers.js';
+import { highlightedParts } from '../utils/search.js';
+import { QuestionMedia } from './QuestionMedia.jsx';
 
 export function HighlightedText({ text, query }) {
-  return highlightedParts(text, query).map((part, index) => (
-    part.match
-      ? <mark className="highlight" key={index}>{part.text}</mark>
-      : <span key={index}>{part.text}</span>
-  ));
+  const parts = highlightedParts(text, query);
+
+  return parts.map((part, index) => {
+    if (part.match) {
+      return <mark className="highlight" key={index}>{part.text}</mark>;
+    }
+
+    return <span key={index}>{part.text}</span>;
+  });
 }
 
 export function QuestionCard({ question, number, query, mode, bookmarked, selection, onToggleBookmark, onSelectOption, onOpenImage, fullImage = false }) {
@@ -33,14 +38,27 @@ export function QuestionCard({ question, number, query, mode, bookmarked, select
         <div className="options-list">
           {question.options.map((option, index) => {
             const correct = isCorrectOption(question, option);
-            const answerState = selection?.correctId === option.id
-              ? selection.correct ? "selected-correct" : "revealed-correct"
-              : selection?.selectedId === option.id && !selection.correct ? "selected-wrong" : "";
+            let answerState = "";
+
+            if (selection?.correctId === option.id) {
+              answerState = selection.correct ? "selected-correct" : "revealed-correct";
+            } else if (selection?.selectedId === option.id && !selection.correct) {
+              answerState = "selected-wrong";
+            }
+
+            let optionClass = "option-item";
+            if (mode === "solver" && correct) {
+              optionClass += " correct";
+            }
+            if (answerState) {
+              optionClass += ` ${answerState}`;
+            }
+
             return (
               <button
                 key={option.id}
                 type="button"
-                className={`option-item ${mode === "solver" && correct ? "correct" : ""} ${answerState}`}
+                className={optionClass}
                 disabled={mode !== "quiz" || !verified}
                 onClick={() => onSelectOption(question, option)}
               >

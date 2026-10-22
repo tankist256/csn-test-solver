@@ -8,14 +8,49 @@ export function collectorPresentation(state, workerMode, wasRunning) {
   const percent = rounds ? Math.round((completed / rounds) * 100) : 0;
   const offline = workerMode && !state?.worker_online && !state?.running;
   const previousRun = !state?.running && !wasRunning;
-  const title = offline ? "Nav savienojuma ar palīgprogrammu"
-    : state?.running ? state.phase === "queued" ? "Gaida palīgprogrammas savienojumu" : `Jautājumu ievākšana: ${Math.min(completed + 1, rounds)}. no ${rounds} ${rounds === 1 ? "testa" : "testiem"}`
-      : previousRun ? "Gatavs darbam" : state?.returncode === 0 ? "Datubāze veiksmīgi atjaunināta" : state?.returncode ? "Jautājumu ievākšana neizdevās" : "Gatavs darbam";
-  const text = offline
-    ? "Vietne nesaņem signālu no datorā palaistās palīgprogrammas. Pārbaudiet, vai tā darbojas un var izveidot savienojumu ar serveri. Jaunu jautājumu ievākšana pašlaik nav pieejama."
-    : previousRun ? "Nospiediet “Sākt jautājumu ievākšanu”, lai papildinātu datubāzi. Iepriekšējā mēģinājuma informācija ir pieejama žurnālā zemāk."
-      : state?.message || "Jautājumu ievācējs ir gatavs darbam.";
-  const statusClass = offline ? "error" : state?.running ? "running" : previousRun ? "idle" : state?.returncode === 0 ? "success" : state?.returncode ? "error" : "idle";
-  const progress = offline || previousRun ? 0 : state?.running ? Math.max(percent, 3) : state?.returncode === 0 ? 100 : percent;
+  let title = "Gatavs darbam";
+  if (offline) {
+    title = "Nav savienojuma ar palīgprogrammu";
+  } else if (state?.running && state.phase === "queued") {
+    title = "Gaida palīgprogrammas savienojumu";
+  } else if (state?.running) {
+    const currentRound = Math.min(completed + 1, rounds);
+    const roundLabel = rounds === 1 ? "testa" : "testiem";
+    title = `Jautājumu ievākšana: ${currentRound}. no ${rounds} ${roundLabel}`;
+  } else if (!previousRun && state?.returncode === 0) {
+    title = "Datubāze veiksmīgi atjaunināta";
+  } else if (!previousRun && state?.returncode) {
+    title = "Jautājumu ievākšana neizdevās";
+  }
+
+  let text = state?.message || "Jautājumu ievācējs ir gatavs darbam.";
+  if (offline) {
+    text = "Vietne nesaņem signālu no datorā palaistās palīgprogrammas. Pārbaudiet, vai tā darbojas un var izveidot savienojumu ar serveri. Jaunu jautājumu ievākšana pašlaik nav pieejama.";
+  } else if (previousRun) {
+    text = "Nospiediet “Sākt jautājumu ievākšanu”, lai papildinātu datubāzi. Iepriekšējā mēģinājuma informācija ir pieejama žurnālā zemāk.";
+  }
+
+  let statusClass = "idle";
+  if (offline) {
+    statusClass = "error";
+  } else if (state?.running) {
+    statusClass = "running";
+  } else if (previousRun) {
+    statusClass = "idle";
+  } else if (!previousRun && state?.returncode === 0) {
+    statusClass = "success";
+  } else if (state?.returncode) {
+    statusClass = "error";
+  }
+
+  let progress = percent;
+  if (offline || previousRun) {
+    progress = 0;
+  } else if (state?.running) {
+    progress = Math.max(percent, 3);
+  } else if (state?.returncode === 0) {
+    progress = 100;
+  }
+
   return { title, text, statusClass, progress, offline, previousRun, completed, rounds };
 }

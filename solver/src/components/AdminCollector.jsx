@@ -1,10 +1,20 @@
-import React, { useCallback, useEffect, useState } from "react";
-import CollectorDialog from "./CollectorDialog.jsx";
-import { clampRounds } from "../utils/collector.js";
+import React, {
+  useCallback,
+  useEffect,
+  useState,
+} from 'react';
+
+import { clampRounds } from '../utils/collector.js';
+import CollectorDialog from './CollectorDialog.jsx';
 
 export default function AdminCollector({ request }) {
   const [open, setOpen] = useState(false);
-  const [collector, setCollector] = useState({ available: false, workerMode: false, state: null, wasRunning: false });
+  const [collector, setCollector] = useState({
+    available: false,
+    workerMode: false,
+    state: null,
+    wasRunning: false,
+  });
   const [rounds, setRounds] = useState("1");
   const [pending, setPending] = useState(false);
   const [error, setError] = useState("");
@@ -19,7 +29,7 @@ export default function AdminCollector({ request }) {
   }, [request]);
 
   useEffect(() => {
-    if (!open || !collector.available) return undefined;
+    if (!open || !collector.available) return;
     refresh();
     const timer = window.setInterval(refresh, collector.state?.running ? 2000 : 5000);
     return () => window.clearInterval(timer);
@@ -48,17 +58,38 @@ export default function AdminCollector({ request }) {
       });
       setCollector((current) => ({ ...current, state, wasRunning: true }));
     } catch (failure) {
-      setError(failure?.message === "forbidden" ? "Tikai administratori var papildināt jautājumus."
-        : "Neizdevās sākt jautājumu ievākšanu. Mēģiniet vēlreiz.");
+      if (failure?.message === "forbidden") {
+        setError("Tikai administratori var papildināt jautājumus.");
+      } else {
+        setError("Neizdevās sākt jautājumu ievākšanu. Mēģiniet vēlreiz.");
+      }
     } finally {
       setPending(false);
     }
   }
 
-  return <>
-    <button className="btn btn-primary" type="button" onClick={openDialog}>↻ Papildināt jautājumus</button>
-    {error && !open && <p className="account-error" role="alert">{error}</p>}
-    {open && <CollectorDialog open onClose={() => setOpen(false)} collector={collector}
-      rounds={rounds} setRounds={setRounds} onStart={start} error={error} pending={pending} />}
-  </>;
+  function closeDialog() {
+    setOpen(false);
+  }
+
+  return (
+    <>
+      <button className="btn btn-primary" type="button" onClick={openDialog}>
+        ↻ Papildināt jautājumus
+      </button>
+      {error && !open && <p className="account-error" role="alert">{error}</p>}
+      {open && (
+        <CollectorDialog
+          open
+          onClose={closeDialog}
+          collector={collector}
+          rounds={rounds}
+          setRounds={setRounds}
+          onStart={start}
+          error={error}
+          pending={pending}
+        />
+      )}
+    </>
+  );
 }

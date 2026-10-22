@@ -18,16 +18,20 @@ An answer is marked as correct only after it is checked against the official CSD
 
 ## Quick start
 
-You need Python 3.10 or later. Internet access is needed to collect questions.
-The website also needs Node.js 20 or later to build its React files.
+You need Python 3.10 or later and Node.js 20 or later. Internet access is needed to collect questions.
 
 ```bash
 git clone git@github.com:tankist256/csn-test-solver.git
 cd csn-test-solver
-npm install
+# Install JavaScript dependencies, then build the website.
+npm ci
 npm run build
+
+# Create the Python environment and install server/collector dependencies.
 python3 -m venv .venv
 .venv/bin/pip install -r requirements.txt
+
+# Start the server from the project root.
 .venv/bin/python solver/serve.py
 ```
 

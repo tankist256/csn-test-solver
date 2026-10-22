@@ -1,4 +1,4 @@
-import React from "react";
+import React from 'react';
 
 export default function Header({ page, mode, theme, onModeChange, onThemeChange,
   query, onQueryChange, filter, onFilterChange, countText }) {
@@ -7,6 +7,14 @@ export default function Header({ page, mode, theme, onModeChange, onThemeChange,
     ["all", "Visi jautājumi"], ["images", "Ar attēliem"],
     ["videos", "Video"], ["bookmarks", "★ Izlase"],
   ];
+  const modeLabel = mode === "solver" ? "Atbilžu lapa" : "Treniņrežīms";
+  const modeIcon = mode === "solver" ? "🎯" : "✍️";
+  const modeDescription = mode === "solver"
+    ? "Atbilžu lapa. Pārslēgt uz treniņrežīmu"
+    : "Treniņrežīms. Pārslēgt uz atbilžu lapu";
+  const themeLabel = theme === "dark" ? "Ieslēgt gaišo režīmu" : "Ieslēgt tumšo režīmu";
+  const themeIcon = theme === "dark" ? "☀️" : "🌙";
+
   return <header className="app-header">
     <div className="header-top">
       <a className="logo-area" href={offline ? "./index.html" : "/"} aria-label="CSDD teorija — sākums">
@@ -18,12 +26,12 @@ export default function Header({ page, mode, theme, onModeChange, onThemeChange,
       </nav>}
       <div className="header-controls">
         {page === "answers" && <button id="mode-toggle-btn" className="btn mode-toggle-btn"
-          title="Pārslēgt režīmu" aria-label={`Režīms: ${mode === "solver" ? "Atbilžu lapa. Pārslēgt uz treniņrežīmu" : "Treniņrežīms. Pārslēgt uz atbilžu lapu"}`}
-          onClick={onModeChange}><span aria-hidden="true">{mode === "solver" ? "🎯" : "✍️"}</span>
-          <strong>{mode === "solver" ? "Atbilžu lapa" : "Treniņrežīms"}</strong></button>}
+          title="Pārslēgt režīmu" aria-label={`Režīms: ${modeDescription}`}
+          onClick={onModeChange}><span aria-hidden="true">{modeIcon}</span>
+          <strong>{modeLabel}</strong></button>}
         <button id="theme-toggle-btn" className="btn icon-btn" title="Mainīt krāsu režīmu"
-          aria-label={theme === "dark" ? "Ieslēgt gaišo režīmu" : "Ieslēgt tumšo režīmu"}
-          onClick={onThemeChange}>{theme === "dark" ? "☀️" : "🌙"}</button>
+          aria-label={themeLabel}
+          onClick={onThemeChange}>{themeIcon}</button>
       </div>
     </div>
     {page === "answers" && <>

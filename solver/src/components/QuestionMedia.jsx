@@ -1,7 +1,12 @@
-import React, { useEffect, useRef, useState } from "react";
+import React, {
+  useEffect,
+  useRef,
+  useState,
+} from 'react';
 
 export function thumbnailPath(path) {
-  return path.startsWith("media/") ? `media/thumbs/${path.slice(6)}.webp` : path;
+  if (!path.startsWith("media/")) return path;
+  return `media/thumbs/${path.slice(6)}.webp`;
 }
 
 export function LazyQuestionImage({ src, full = false, alt = "" }) {
@@ -9,11 +14,11 @@ export function LazyQuestionImage({ src, full = false, alt = "" }) {
   const [imageSrc, setImageSrc] = useState(full ? src : "");
 
   useEffect(() => {
-    if (full || !imageRef.current) return undefined;
+    if (full || !imageRef.current) return;
     const image = imageRef.current;
     if (!("IntersectionObserver" in window)) {
       setImageSrc(thumbnailPath(src));
-      return undefined;
+      return;
     }
     const observer = new IntersectionObserver((entries) => {
       if (entries.some((entry) => entry.isIntersecting)) {
@@ -25,15 +30,21 @@ export function LazyQuestionImage({ src, full = false, alt = "" }) {
     return () => observer.disconnect();
   }, [src, full]);
 
+  function handleImageError(event) {
+    if (!full && imageSrc !== src) {
+      setImageSrc(src);
+      return;
+    }
+
+    event.currentTarget.onerror = null;
+  }
+
   return (
     <img
       ref={imageRef}
       src={imageSrc || undefined}
       alt={alt}
-      onError={(event) => {
-        if (!full && imageSrc !== src) setImageSrc(src);
-        else event.currentTarget.onerror = null;
-      }}
+      onError={handleImageError}
     />
   );
 }

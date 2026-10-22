@@ -6,10 +6,10 @@ A local question bank and study tool for CSDD / CredoAutoprieks category B theor
 
 ## Quick start
 
-Build the React website once before using either option:
+Run these commands from the project root to install JavaScript packages and build the React website:
 
 ```bash
-npm install
+npm ci
 npm run build
 ```
 
@@ -19,7 +19,14 @@ Open [`index.html`](index.html) in a browser such as Chrome, Firefox, or Safari.
 
 ### Option 2: Start the local server
 
-Use the server to collect questions and to open the site on a phone or tablet on the same Wi-Fi network:
+From the project root, create the Python environment and install the server and collector dependencies:
+
+```bash
+python3 -m venv .venv
+.venv/bin/pip install -r requirements.txt
+```
+
+Then start the server from the project root to collect questions and open the site on a phone or tablet on the same Wi-Fi network:
 
 ```bash
 .venv/bin/python solver/serve.py

@@ -1,24 +1,46 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
-import Header from "./components/Header.jsx";
-import QuestionTile from "./components/QuestionTile.jsx";
-import { QuestionCard } from "./components/QuestionCard.jsx";
-import QuestionDialog from "./components/QuestionDialog.jsx";
-import ImageLightbox from "./components/ImageLightbox.jsx";
-import AccountPanel from "./components/AccountPanel.jsx";
-import { migrateBookmarks, readBookmarks, saveBookmarks } from "./utils/bookmarks.js";
-import { filterQuestions, prepareQuestion } from "./utils/search.js";
+import React, {
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
+
+import AccountPanel from './components/AccountPanel.jsx';
+import Header from './components/Header.jsx';
+import ImageLightbox from './components/ImageLightbox.jsx';
+import { QuestionCard } from './components/QuestionCard.jsx';
+import QuestionDialog from './components/QuestionDialog.jsx';
+import QuestionTile from './components/QuestionTile.jsx';
+import {
+  migrateBookmarks,
+  readBookmarks,
+  saveBookmarks,
+} from './utils/bookmarks.js';
+import {
+  filterQuestions,
+  prepareQuestion,
+} from './utils/search.js';
 
 const PAGE_SIZE = 6;
 const DESKTOP_PAGE_SIZE = 12;
 
 function readPreference(key, fallback) {
-  try { return localStorage.getItem(key) || fallback; } catch { return fallback; }
+  try {
+    return localStorage.getItem(key) || fallback;
+  } catch {
+    return fallback;
+  }
+}
+
+function getCurrentSection() {
+  if (location.protocol === "file:") return "answers";
+  if (location.pathname === "/answers") return "answers";
+  if (location.pathname === "/tests") return "tests";
+  return "home";
 }
 
 export default function App() {
-  const section = location.protocol === "file:" ? "answers"
-    : location.pathname === "/answers" ? "answers"
-      : location.pathname === "/tests" ? "tests" : "home";
+  const section = getCurrentSection();
   const [questions, setQuestions] = useState([]);
   const [loadState, setLoadState] = useState("loading");
   const [mode, setMode] = useState("solver");
@@ -41,16 +63,20 @@ export default function App() {
   );
 
   useEffect(() => {
-    if (section !== "answers") return undefined;
+    if (section !== "answers") return;
     let cancelled = false;
     async function loadQuestions() {
       try {
-        const data = Array.isArray(window.CSDD_QUESTIONS)
-          ? window.CSDD_QUESTIONS
-          : await fetch("questions.json").then((response) => {
-            if (!response.ok) throw new Error("Jautājumu datubāze nav atrasta.");
-            return response.json();
-          });
+        let data;
+        if (Array.isArray(window.CSDD_QUESTIONS)) {
+          data = window.CSDD_QUESTIONS;
+        } else {
+          const response = await fetch("questions.json");
+          if (!response.ok) {
+            throw new Error("Jautājumu datubāze nav atrasta.");
+          }
+          data = await response.json();
+        }
         if (cancelled) return;
         const prepared = data.map(prepareQuestion);
         const migrated = migrateBookmarks(prepared, readBookmarks(localStorage));
@@ -64,7 +90,9 @@ export default function App() {
       }
     }
     loadQuestions();
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [section]);
 
   useEffect(() => {
@@ -74,7 +102,9 @@ export default function App() {
     try {
       localStorage.setItem("csdd_theme", theme);
       localStorage.setItem("csdd_mode", mode);
-    } catch { /* Preferences are optional when browser storage is unavailable. */ }
+    } catch {
+      // Preferences are optional when browser storage is unavailable.
+    }
   }, [mode, theme]);
 
   useEffect(() => {
@@ -86,7 +116,9 @@ export default function App() {
     const media = window.matchMedia("(max-width: 640px)");
     const updateLayout = () => setIsMobile(media.matches);
     media.addEventListener("change", updateLayout);
-    return () => media.removeEventListener("change", updateLayout);
+    return () => {
+      media.removeEventListener("change", updateLayout);
+    };
   }, []);
 
   useEffect(() => {
@@ -114,12 +146,24 @@ export default function App() {
     else if (isMobile) {
       const first = page * PAGE_SIZE + 1;
       const last = Math.min(first + PAGE_SIZE - 1, total);
-      setCountText(`Jautājumi ${first}–${last} no ${total}${total !== questions.length ? ` · Kopā ${questions.length}` : ""}`);
+      const totalLabel = total === questions.length ? "" : ` · Kopā ${questions.length}`;
+      setCountText(`Jautājumi ${first}–${last} no ${total}${totalLabel}`);
     } else {
       const shown = Math.min(shownCount, total);
-      setCountText(`Rādīti ${shown} no ${total}${total !== questions.length ? ` · Kopā ${questions.length}` : ""}`);
+      const totalLabel = total === questions.length ? "" : ` · Kopā ${questions.length}`;
+      setCountText(`Rādīti ${shown} no ${total}${totalLabel}`);
     }
   }, [loadState, filteredQuestions.length, questions.length, isMobile, page, shownCount]);
+
+  const mobilePageCount = Math.ceil(filteredQuestions.length / PAGE_SIZE);
+  const visibleQuestions = isMobile
+    ? filteredQuestions.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE)
+    : filteredQuestions.slice(0, shownCount);
+  let activeNumber = 0;
+  if (activeQuestion) {
+    activeNumber = filteredQuestions.findIndex((question) => question.id === activeQuestion.id) + 1;
+  }
+  const selectionFor = (question) => selectedAnswers[question.id];
 
   function toggleBookmark(id) {
     if (filter === "bookmarks") {
@@ -166,19 +210,45 @@ export default function App() {
     setImage(null);
   }
 
-  const mobilePageCount = Math.ceil(filteredQuestions.length / PAGE_SIZE);
-  const visibleQuestions = isMobile
-    ? filteredQuestions.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE)
-    : filteredQuestions.slice(0, shownCount);
-  const activeNumber = activeQuestion ? filteredQuestions.findIndex((question) => question.id === activeQuestion.id) + 1 : 0;
-  const selectionFor = (question) => selectedAnswers[question.id];
+  function changeMode() {
+    setMode((currentMode) => currentMode === "solver" ? "quiz" : "solver");
+    setSelectedAnswers({});
+  }
+
+  function changeTheme() {
+    setTheme((currentTheme) => currentTheme === "dark" ? "light" : "dark");
+  }
+
+  function showMoreQuestions() {
+    setShownCount((currentCount) => currentCount + DESKTOP_PAGE_SIZE);
+  }
+
+  function goToPreviousPage() {
+    closeQuestion();
+    setPage((currentPage) => Math.max(0, currentPage - 1));
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function goToNextPage() {
+    closeQuestion();
+    setPage((currentPage) => Math.min(mobilePageCount - 1, currentPage + 1));
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  function openImage(src, trigger) {
+    setImage({ src, trigger });
+  }
 
   return (
     <>
       <Header
-        page={section} mode={mode} theme={theme} onModeChange={() => { setMode((value) => value === "solver" ? "quiz" : "solver"); setSelectedAnswers({}); }}
-        onThemeChange={() => setTheme((value) => value === "dark" ? "light" : "dark")}
-        query={query} onQueryChange={setQuery} filter={filter} onFilterChange={setFilter} countText={countText}
+        page={section} mode={mode} theme={theme} onModeChange={changeMode}
+        onThemeChange={changeTheme}
+        query={query}
+        onQueryChange={setQuery}
+        filter={filter}
+        onFilterChange={setFilter}
+        countText={countText}
       />
       {section === "home" && <main className="landing-page">
         <section className="landing-hero">
@@ -210,17 +280,83 @@ export default function App() {
           {loadState === "ready" && filteredQuestions.length === 0 && <div className="empty-state"><div className="empty-icon">🔍</div><h3>Nekas nav atrasts</h3><p>Mainiet meklēšanas vaicājumu vai izvēlieties citu filtru.</p></div>}
           {loadState === "ready" && isMobile && visibleQuestions.map((question, index) => {
             const absoluteIndex = page * PAGE_SIZE + index;
-            return <QuestionTile key={question.id} question={question} number={absoluteIndex + 1} query={query} mode={mode} bookmarked={bookmarks.has(question.id)} onOpen={(event) => openQuestion(question, event.currentTarget)} />;
+            return (
+              <QuestionTile
+                key={question.id}
+                question={question}
+                number={absoluteIndex + 1}
+                query={query}
+                mode={mode}
+                bookmarked={bookmarks.has(question.id)}
+                onOpen={(event) => openQuestion(question, event.currentTarget)}
+              />
+            );
           })}
           {loadState === "ready" && !isMobile && visibleQuestions.map((question, index) => (
-            <QuestionCard key={question.id} question={question} number={index + 1} query={query} mode={mode} bookmarked={bookmarks.has(question.id)} selection={selectionFor(question)} onToggleBookmark={toggleBookmark} onSelectOption={selectOption} onOpenImage={(src, trigger) => setImage({ src, trigger })} />
+            <QuestionCard
+              key={question.id}
+              question={question}
+              number={index + 1}
+              query={query}
+              mode={mode}
+              bookmarked={bookmarks.has(question.id)}
+              selection={selectionFor(question)}
+              onToggleBookmark={toggleBookmark}
+              onSelectOption={selectOption}
+              onOpenImage={openImage}
+            />
           ))}
           {loadState === "ready" && isMobile && visibleQuestions.length > 0 && Array.from({ length: Math.max(0, PAGE_SIZE - visibleQuestions.length) }, (_, index) => <div key={`placeholder-${index}`} className="question-tile tile-placeholder" aria-hidden="true" />)}
         </div>
-        {!isMobile && loadState === "ready" && <button id="load-more-btn" className="btn load-more-btn" type="button" hidden={shownCount >= filteredQuestions.length} onClick={() => setShownCount((count) => count + DESKTOP_PAGE_SIZE)}>Parādīt vēl jautājumus</button>}
-        {isMobile && loadState === "ready" && filteredQuestions.length > 0 && <nav id="questions-pagination" className="questions-pagination" aria-label="Jautājumu lapas"><button id="previous-page-btn" className="btn page-btn" type="button" disabled={page === 0} onClick={() => { closeQuestion(); setPage((current) => Math.max(0, current - 1)); window.scrollTo({ top: 0, behavior: "smooth" }); }}>← Iepriekšējā</button><span id="page-indicator" className="page-indicator" aria-live="polite">{page + 1} / {mobilePageCount}</span><button id="next-page-btn" className="btn page-btn" type="button" disabled={page >= mobilePageCount - 1} onClick={() => { closeQuestion(); setPage((current) => Math.min(mobilePageCount - 1, current + 1)); window.scrollTo({ top: 0, behavior: "smooth" }); }}>Nākamā →</button></nav>}
+        {!isMobile && loadState === "ready" && (
+          <button
+            id="load-more-btn"
+            className="btn load-more-btn"
+            type="button"
+            hidden={shownCount >= filteredQuestions.length}
+            onClick={showMoreQuestions}
+          >
+            Parādīt vēl jautājumus
+          </button>
+        )}
+        {isMobile && loadState === "ready" && filteredQuestions.length > 0 && (
+          <nav id="questions-pagination" className="questions-pagination" aria-label="Jautājumu lapas">
+            <button
+              id="previous-page-btn"
+              className="btn page-btn"
+              type="button"
+              disabled={page === 0}
+              onClick={goToPreviousPage}
+            >
+              ← Iepriekšējā
+            </button>
+            <span id="page-indicator" className="page-indicator" aria-live="polite">
+              {page + 1} / {mobilePageCount}
+            </span>
+            <button
+              id="next-page-btn"
+              className="btn page-btn"
+              type="button"
+              disabled={page >= mobilePageCount - 1}
+              onClick={goToNextPage}
+            >
+              Nākamā →
+            </button>
+          </nav>
+        )}
       </main>
-      <QuestionDialog question={activeQuestion} number={activeNumber} query={query} mode={mode} bookmarked={activeQuestion ? bookmarks.has(activeQuestion.id) : false} selection={activeQuestion ? selectionFor(activeQuestion) : undefined} onClose={closeQuestion} onToggleBookmark={toggleBookmark} onSelectOption={selectOption} onOpenImage={(src, trigger) => setImage({ src, trigger })} />
+      <QuestionDialog
+        question={activeQuestion}
+        number={activeNumber}
+        query={query}
+        mode={mode}
+        bookmarked={activeQuestion ? bookmarks.has(activeQuestion.id) : false}
+        selection={activeQuestion ? selectionFor(activeQuestion) : undefined}
+        onClose={closeQuestion}
+        onToggleBookmark={toggleBookmark}
+        onSelectOption={selectOption}
+        onOpenImage={openImage}
+      />
       {image && <ImageLightbox image={image.src} returnFocus={image.trigger} onClose={closeImage} />}
       </>}
     </>
