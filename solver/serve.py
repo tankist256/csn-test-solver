@@ -247,6 +247,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 class ThreadingServer(socketserver.ThreadingMixIn, socketserver.TCPServer):
     allow_reuse_address = True
     daemon_threads = True
+    request_queue_size = 128
 
 
 def get_local_ip():

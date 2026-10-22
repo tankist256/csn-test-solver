@@ -10,6 +10,7 @@ import secrets
 import threading
 import time
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timedelta, timezone
 from http.cookies import SimpleCookie
 
@@ -25,6 +26,7 @@ except ImportError:
 COOKIE_NAME = "csn_session"
 SESSION_DAYS = 7
 EMAIL_RE = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
+MAX_PASSWORD_OPERATIONS = 4
 
 
 def session_token(cookie_header):
@@ -49,6 +51,10 @@ class LocalAuth:
     def __init__(self, engine):
         self.engine = engine
         self.hasher = PasswordHasher(time_cost=2, memory_cost=19456, parallelism=1)
+        # Each Argon2 operation uses about 19 MiB. Reuse a small set of threads
+        # so their memory arenas do not grow with the number of HTTP clients.
+        self._password_pool = ThreadPoolExecutor(max_workers=MAX_PASSWORD_OPERATIONS,
+                                                 thread_name_prefix="csn-password")
         self._lock = threading.Lock()
         self._failures = {}
         with engine.pool.connection() as conn:
@@ -108,7 +114,7 @@ class LocalAuth:
                 not 12 <= len(password) <= 128):
             raise AuthError(400, "bad_account")
         user_id = uuid.uuid4()
-        password_hash = self.hasher.hash(password)
+        password_hash = self._password_pool.submit(self.hasher.hash, password).result()
         try:
             with self.engine.pool.connection() as conn:
                 conn.execute("""
@@ -132,7 +138,8 @@ class LocalAuth:
                 FROM local_accounts WHERE email = %s
             """, (email.strip().casefold(),)).fetchone()
         try:
-            valid = row is not None and self.hasher.verify(row[4], password)
+            valid = row is not None and self._password_pool.submit(
+                self.hasher.verify, row[4], password).result()
         except VerificationError:
             valid = False
         if not valid:
