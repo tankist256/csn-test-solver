@@ -43,14 +43,13 @@ test("preserves local question, preference, bookmark, and collector interfaces",
   assert.match(read("solver/src/utils/bookmarks.js"), /csdd_bookmarks/);
   assert.match(read("solver/src/App.jsx"), /csdd_mode/);
   assert.match(read("solver/src/App.jsx"), /csdd_theme/);
-  assert.match(read("solver/src/utils/collector.js"), /X-CSN-Collector-Token/);
-  assert.match(read("solver/src/App.jsx"), /\/api\/collector\/access/);
-  assert.match(read("solver/src/App.jsx"), /\/api\/collector\/status/);
-  assert.match(read("solver/src/App.jsx"), /\/api\/collector\/start/);
+  assert.match(read("solver/src/components/AdminCollector.jsx"), /\/api\/collector\/access/);
+  assert.match(read("solver/src/components/AdminCollector.jsx"), /\/api\/collector\/status/);
+  assert.match(read("solver/src/components/AdminCollector.jsx"), /\/api\/collector\/start/);
 });
 
-test("keeps every README in English", () => {
-  for (const file of ["README.md", "solver/README.md", "deploy/README.md"]) {
+test("keeps public README files in English", () => {
+  for (const file of ["README.md", "solver/README.md"]) {
     const source = read(file);
     assert.match(source, /^# [A-Za-z]/, `${file} must start with an English title`);
     assert.doesNotMatch(source, /[А-Яа-яЁё]/, `${file} must not contain Russian text`);

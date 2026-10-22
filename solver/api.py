@@ -158,6 +158,20 @@ def _local_post_allowed(handler):
         raise AuthError(403, "csrf_rejected")
 
 
+def require_admin(handler, method="GET"):
+    """Authorize collector operations using the same identity as the admin API."""
+    config = _config()
+    mode = _mode(config)
+    if mode == "off" or (mode == "entra" and not config.enabled):
+        raise AuthError(401, "unauthorized")
+    if mode == "local" and method == "POST":
+        _local_post_allowed(handler)
+    principal = _principal(handler, config)
+    if not principal.is_admin:
+        raise AuthError(403, "forbidden")
+    return principal
+
+
 def _local_session_body(principal):
     return {"oid": principal.oid, "name": principal.name, "email": principal.email,
             "roles": sorted(principal.roles), "is_admin": principal.is_admin}

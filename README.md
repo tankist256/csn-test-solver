@@ -31,7 +31,7 @@ python3 -m venv .venv
 .venv/bin/python solver/serve.py
 ```
 
-Open [http://localhost:8080](http://localhost:8080) in a browser.
+Open [http://localhost:8080](http://localhost:8080) in a browser. The answer bank is at `/answers`; personal tests and the admin panel are at `/tests`.
 
 To open the site on a phone on the same Wi-Fi network, use `http://<computer-IP>:8080`. The server prints the computer's address in the terminal.
 
@@ -39,21 +39,15 @@ You can also open `solver/index.html` directly after building the website. This 
 
 ## Collect questions
 
-Start `solver/serve.py`, then use the question collection button at the top of the site:
+Sign in with an administrator account, open `/tests`, then use the collection button in the administration panel:
 
 1. Choose how many tests to collect. One test contains 30 questions.
 2. Start the collection and wait for the completion message.
-3. The page reloads the question bank automatically.
+3. Open `/answers` after collection finishes to load the updated question bank.
 
 For a first run, 1–5 tests are usually enough. More runs may collect more road situations.
 
-On a public site, question collection requires an administrator token. Set `CSN_COLLECTOR_TOKEN` before starting the server. With Docker Compose, add it to `.env`, for example `CSN_COLLECTOR_TOKEN=your_long_random_key`, then enter the same token in the collection dialog. Without a token, collection is available only when `serve.py` runs directly on the local computer. The public site hides the collection button and protects the status and log.
-
-Create a random token with:
-
-```bash
-python3 -c 'import secrets; print(secrets.token_urlsafe(32))'
-```
+The server checks the administrator role on every collection request, including status and logs. A collector token does not grant access. With authentication disabled, collection remains available from the command line only.
 
 Use HTTPS for a public site.
 

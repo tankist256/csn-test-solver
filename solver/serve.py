@@ -1,6 +1,4 @@
 import http.server
-import hmac
-import ipaddress
 import json
 import os
 import re
@@ -26,7 +24,6 @@ PORT = int(os.environ.get("PORT", os.environ.get("CSN_PORT", "8080")))
 DIRECTORY = os.path.dirname(os.path.abspath(__file__))
 BUILD_DIRECTORY = os.environ.get("CSN_FRONTEND_BUILD_DIR", os.path.join(DIRECTORY, "dist"))
 COLLECTOR_PATH = os.path.join(DIRECTORY, "collector.py")
-COLLECTOR_TOKEN = os.environ.get("CSN_COLLECTOR_TOKEN", "").strip()
 REMOTE_WORKER = os.environ.get("CSN_REMOTE_WORKER", "0") == "1"
 
 collector_lock = threading.Lock()
@@ -51,21 +48,6 @@ def public_collector_state():
         state = dict(collector_state)
         state["log"] = list(collector_state["log"][-30:])
         return state
-
-
-def collector_authorized(client_ip, headers, supplied_token, configured_token=None):
-    if configured_token is None:
-        configured_token = COLLECTOR_TOKEN
-    if configured_token:
-        return hmac.compare_digest(supplied_token, configured_token)
-    try:
-        direct_local = ipaddress.ip_address(client_ip).is_loopback
-    except ValueError:
-        return False
-    # A reverse proxy connects from loopback, so its forwarded request is not local.
-    return direct_local and not any(
-        headers.get(name) for name in ("Forwarded", "X-Forwarded-For", "X-Real-IP")
-    )
 
 
 def run_collector(rounds):
@@ -133,13 +115,18 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         """Serve built React files while keeping question data at the solver root."""
         route = path.split("?", 1)[0]
         build_root = Path(BUILD_DIRECTORY).resolve()
-        if route in ("/", "/index.html") and (build_root / "index.html").is_file():
+        if route in ("/", "/index.html", "/answers", "/tests") and (build_root / "index.html").is_file():
             return str(build_root / "index.html")
         if route.startswith("/assets/"):
             candidate = (build_root / route.lstrip("/")).resolve()
             if candidate.is_relative_to(build_root):
                 return str(candidate)
         return super().translate_path(path)
+
+    def end_headers(self):
+        if self.path.split("?", 1)[0] in ("/", "/index.html", "/answers", "/tests"):
+            self.send_header("Cache-Control", "no-store")
+        super().end_headers()
 
     def send_head(self):
         """Serve site assets, but never expose server code or hidden files."""
@@ -172,30 +159,29 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         self.end_headers()
         self.wfile.write(body)
 
-    def can_use_collector(self):
-        return collector_authorized(
-            self.client_address[0],
-            self.headers,
-            self.headers.get("X-CSN-Collector-Token", ""),
-        )
-
-    def require_collector_access(self):
-        if self.can_use_collector():
+    def require_collector_access(self, method="GET"):
+        try:
+            api.require_admin(self, method)
             return True
-        self.send_json(
-            {"error": "Nederīga piekļuves atslēga." if COLLECTOR_TOKEN else "Ievākšana pieejama tikai lokāli."},
-            401 if COLLECTOR_TOKEN else 403,
-        )
-        return False
+        except api.AuthError as error:
+            self.send_json({"error": error.code}, error.status)
+            return False
 
     def do_GET(self):
         route = self.path.split("?", 1)[0]
         if api.handle(self, "GET", route):
             return
+        if route in ("/answers/", "/tests/"):
+            self.send_response(308)
+            self.send_header("Location", route.rstrip("/"))
+            self.send_header("Content-Length", "0")
+            self.end_headers()
+            return
         if route == "/api/collector/access":
+            if not self.require_collector_access():
+                return
             self.send_json({
-                "available": bool(COLLECTOR_TOKEN) or self.can_use_collector(),
-                "requires_token": bool(COLLECTOR_TOKEN),
+                "available": True,
                 "worker_mode": REMOTE_WORKER,
             })
             return
@@ -212,7 +198,7 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         if self.path.split("?", 1)[0] != "/api/collector/start":
             self.send_json({"error": "Pieprasītais ceļš nav atrasts."}, 404)
             return
-        if not self.require_collector_access():
+        if not self.require_collector_access("POST"):
             return
 
         try:

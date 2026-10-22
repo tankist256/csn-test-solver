@@ -2,12 +2,6 @@ export function clampRounds(value) {
   return Math.max(1, Math.min(50, Number.parseInt(value, 10) || 1));
 }
 
-export function collectorHeaders(requiresToken, token, includeContentType = false) {
-  const headers = includeContentType ? { "Content-Type": "application/json" } : {};
-  if (requiresToken) headers["X-CSN-Collector-Token"] = token.trim();
-  return headers;
-}
-
 export function collectorPresentation(state, workerMode, wasRunning) {
   const completed = Number(state?.completed_rounds) || 0;
   const rounds = Number(state?.rounds) || 0;

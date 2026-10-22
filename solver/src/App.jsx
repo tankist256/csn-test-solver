@@ -1,14 +1,12 @@
-import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import Header from "./components/Header.jsx";
 import QuestionTile from "./components/QuestionTile.jsx";
 import { QuestionCard } from "./components/QuestionCard.jsx";
 import QuestionDialog from "./components/QuestionDialog.jsx";
-import CollectorDialog from "./components/CollectorDialog.jsx";
 import ImageLightbox from "./components/ImageLightbox.jsx";
 import AccountPanel from "./components/AccountPanel.jsx";
 import { migrateBookmarks, readBookmarks, saveBookmarks } from "./utils/bookmarks.js";
 import { filterQuestions, prepareQuestion } from "./utils/search.js";
-import { clampRounds, collectorHeaders } from "./utils/collector.js";
 
 const PAGE_SIZE = 6;
 const DESKTOP_PAGE_SIZE = 12;
@@ -18,9 +16,12 @@ function readPreference(key, fallback) {
 }
 
 export default function App() {
+  const section = location.protocol === "file:" ? "answers"
+    : location.pathname === "/answers" ? "answers"
+      : location.pathname === "/tests" ? "tests" : "home";
   const [questions, setQuestions] = useState([]);
   const [loadState, setLoadState] = useState("loading");
-  const [mode, setMode] = useState(() => readPreference("csdd_mode", "solver"));
+  const [mode, setMode] = useState("solver");
   const [theme, setTheme] = useState(() => readPreference("csdd_theme", "dark"));
   const [bookmarks, setBookmarks] = useState(() => readBookmarks(localStorage));
   const [query, setQuery] = useState("");
@@ -31,16 +32,8 @@ export default function App() {
   const [selectedAnswers, setSelectedAnswers] = useState({});
   const [activeQuestion, setActiveQuestion] = useState(null);
   const [image, setImage] = useState(null);
-  const [collectorOpen, setCollectorOpen] = useState(false);
-  const [collector, setCollector] = useState({ available: false, requiresToken: false, workerMode: false, state: null, wasRunning: false });
-  const [collectorToken, setCollectorToken] = useState("");
-  const [collectorRounds, setCollectorRounds] = useState("1");
-  const [collectorPending, setCollectorPending] = useState(false);
-  const [collectorError, setCollectorError] = useState("");
   const [countText, setCountText] = useState("Ielādē…");
   const questionTrigger = useRef(null);
-  const collectorTrigger = useRef(null);
-  const requestVersion = useRef(0);
 
   const filteredQuestions = useMemo(
     () => filterQuestions(questions, query, filter, bookmarks),
@@ -48,6 +41,7 @@ export default function App() {
   );
 
   useEffect(() => {
+    if (section !== "answers") return undefined;
     let cancelled = false;
     async function loadQuestions() {
       try {
@@ -71,7 +65,7 @@ export default function App() {
     }
     loadQuestions();
     return () => { cancelled = true; };
-  }, []);
+  }, [section]);
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
@@ -103,60 +97,15 @@ export default function App() {
     setSelectedAnswers({});
   }, [query, filter, isMobile, loadState]);
 
-  const refreshCollectorStatus = useCallback(async () => {
-    if (!collector.available || (collector.requiresToken && !collectorToken.trim())) return;
-    const version = ++requestVersion.current;
-    try {
-      const headers = collectorHeaders(collector.requiresToken, collectorToken);
-      const response = await fetch("/api/collector/status", { cache: "no-store", headers });
-      if (version !== requestVersion.current) return;
-      if (response.status === 401) {
-        setCollectorError("Piekļuves atslēga nav derīga.");
-        return;
-      }
-      if (!response.ok) throw new Error("Jautājumu ievācējs nav pieejams.");
-      const state = await response.json();
-      if (version !== requestVersion.current) return;
-      setCollector((current) => ({ ...current, state, wasRunning: current.wasRunning || state.running }));
-      if (!state.running && collector.wasRunning) {
-        setCollector((current) => ({ ...current, wasRunning: false }));
-        await reloadQuestionBank();
-      }
-    } catch {
-      if (version === requestVersion.current) setCollectorError("Neizdevās izveidot savienojumu ar jautājumu ievācēju.");
-    }
-  }, [collector.available, collector.requiresToken, collectorToken, collector.wasRunning]);
-
-  useEffect(() => {
-    if (location.protocol === "file:") return undefined;
-    let active = true;
-    fetch("/api/collector/access", { cache: "no-store" })
-      .then((response) => response.ok ? response.json() : null)
-      .then((access) => {
-        if (!active || !access?.available) return;
-        setCollector((current) => ({ ...current, available: true, requiresToken: Boolean(access.requires_token), workerMode: Boolean(access.worker_mode) }));
-      })
-      .catch(() => {});
-    return () => { active = false; };
-  }, []);
-
-  useEffect(() => {
-    if (!collector.available || (collector.requiresToken && !collectorToken.trim())) return undefined;
-    refreshCollectorStatus();
-    const timer = window.setInterval(refreshCollectorStatus, collector.state?.running ? 1000 : collector.workerMode ? 5000 : 5000);
-    return () => window.clearInterval(timer);
-  }, [collector.available, collector.requiresToken, collectorToken, collector.workerMode, collector.state?.running, refreshCollectorStatus]);
-
   useEffect(() => {
     const onKeyDown = (event) => {
       if (event.key !== "Escape") return;
       if (image) return;
-      if (collectorOpen) closeCollector();
-      else if (activeQuestion) closeQuestion();
+      if (activeQuestion) closeQuestion();
     };
     document.addEventListener("keydown", onKeyDown);
     return () => document.removeEventListener("keydown", onKeyDown);
-  }, [collectorOpen, activeQuestion, image]);
+  }, [activeQuestion, image]);
 
   useEffect(() => {
     if (loadState !== "ready") return;
@@ -171,22 +120,6 @@ export default function App() {
       setCountText(`Rādīti ${shown} no ${total}${total !== questions.length ? ` · Kopā ${questions.length}` : ""}`);
     }
   }, [loadState, filteredQuestions.length, questions.length, isMobile, page, shownCount]);
-
-  async function reloadQuestionBank() {
-    try {
-      const response = await fetch(`questions.json?t=${Date.now()}`, { cache: "no-store" });
-      if (!response.ok) throw new Error("Neizdevās ielādēt atjaunināto datubāzi.");
-      const data = await response.json();
-      const prepared = data.map(prepareQuestion);
-      setQuestions(prepared);
-      window.CSDD_QUESTIONS = data;
-      const migrated = migrateBookmarks(prepared, readBookmarks(localStorage));
-      setBookmarks(migrated);
-      saveBookmarks(localStorage, migrated);
-    } catch {
-      setCollectorError("Neizdevās ielādēt atjaunināto datubāzi. Atjauniniet lapu manuāli.");
-    }
-  }
 
   function toggleBookmark(id) {
     if (filter === "bookmarks") {
@@ -233,48 +166,6 @@ export default function App() {
     setImage(null);
   }
 
-  function openCollector(event) {
-    collectorTrigger.current = event.currentTarget;
-    setCollectorOpen(true);
-    setCollectorError("");
-  }
-
-  function closeCollector() {
-    setCollectorOpen(false);
-    if (collectorTrigger.current?.isConnected) collectorTrigger.current.focus();
-    collectorTrigger.current = null;
-  }
-
-  async function startCollector() {
-    if (collectorPending) return;
-    if (collector.requiresToken && !collectorToken.trim()) {
-      setCollectorError("Ievadiet jautājumu ievācēja piekļuves atslēgu.");
-      document.getElementById("collector-token")?.focus();
-      return;
-    }
-    const rounds = clampRounds(collectorRounds);
-    setCollectorRounds(String(rounds));
-    setCollectorPending(true);
-    setCollectorError("");
-    requestVersion.current += 1;
-    const headers = collectorHeaders(collector.requiresToken, collectorToken, true);
-    const testForm = rounds % 10 === 1 && rounds % 100 !== 11 ? "testu" : "testus";
-    setCollector((current) => ({ ...current, wasRunning: true, state: { running: true, phase: "queued", rounds, completed_rounds: 0, log: [], message: `Sāku ievākt ${rounds.toLocaleString("lv-LV")} ${testForm}…` } }));
-    try {
-      const response = await fetch("/api/collector/start", { method: "POST", headers, body: JSON.stringify({ rounds }) });
-      const data = await response.json();
-      if (!response.ok) throw new Error(data.error || "Neizdevās sākt jautājumu ievākšanu.");
-      setCollector((current) => ({ ...current, wasRunning: true, state: data }));
-    } catch (error) {
-      const message = error.message?.startsWith("Neizdevās") || error.message?.startsWith("Ievadiet")
-        ? error.message : "Neizdevās izveidot savienojumu ar jautājumu ievācēju.";
-      setCollectorError(message);
-      setCollector((current) => ({ ...current, wasRunning: false, state: { ...current.state, running: false } }));
-    } finally {
-      setCollectorPending(false);
-    }
-  }
-
   const mobilePageCount = Math.ceil(filteredQuestions.length / PAGE_SIZE);
   const visibleQuestions = isMobile
     ? filteredQuestions.slice(page * PAGE_SIZE, page * PAGE_SIZE + PAGE_SIZE)
@@ -285,12 +176,33 @@ export default function App() {
   return (
     <>
       <Header
-        mode={mode} theme={theme} onModeChange={() => { setMode((value) => value === "solver" ? "quiz" : "solver"); setSelectedAnswers({}); }}
+        page={section} mode={mode} theme={theme} onModeChange={() => { setMode((value) => value === "solver" ? "quiz" : "solver"); setSelectedAnswers({}); }}
         onThemeChange={() => setTheme((value) => value === "dark" ? "light" : "dark")}
-        collectorAvailable={collector.available} onCollectorOpen={openCollector}
         query={query} onQueryChange={setQuery} filter={filter} onFilterChange={setFilter} countText={countText}
       />
-      <AccountPanel />
+      {section === "home" && <main className="landing-page">
+        <section className="landing-hero">
+          <span className="eyebrow">B kategorijas teorija</span>
+          <h1>Gatavojies ceļam ar pārliecību.</h1>
+          <p>Atrodi pārbaudītas atbildes vai sāc personīgo testu. Rezultāti, progress un kvesti paliks tavā kontā.</p>
+          <div className="landing-actions"><a className="btn btn-primary" href="/tests">Sākt testu <span aria-hidden="true">↗</span></a>
+            <a className="btn" href="/answers">Skatīt atbildes <span aria-hidden="true">→</span></a></div>
+        </section>
+        <div className="landing-cards">
+          <a className="landing-card" href="/answers"><span className="landing-icon">✓</span><span className="eyebrow">Mācies savā tempā</span>
+            <strong>Gatavās atbildes</strong><span>Meklē jautājumus, apskati CSDD pārbaudītās atbildes un saglabā izlasi.</span><b>Atvērt atbildes →</b></a>
+          <a className="landing-card" href="/tests"><span className="landing-icon">◎</span><span className="eyebrow">Pārbaudi zināšanas</span>
+            <strong>Mani testi</strong><span>Izvēlies 30, 60 vai 120 jautājumus. Katram jautājumam ir 60 sekundes.</span><b>Sākt testu →</b></a>
+        </div>
+      </main>}
+      {section === "tests" && <main className="tests-page">
+        <div className="page-intro"><span className="eyebrow">Tavs mācību ceļš</span><h1>Mani testi un progress</h1>
+          <p>Testi ar laika ierobežojumu, personīgie rezultāti, kvesti un līderu saraksts.</p></div>
+        <AccountPanel />
+      </main>}
+      {section === "answers" && <>
+      <div className="page-intro answers-intro"><span className="eyebrow">Jautājumu bibliotēka</span><h1>Gatavās atbildes</h1>
+        <p>Pārbaudītās atbildes vienuviet. Lai pārbaudītu sevi bez atbilžu priekšskatījuma, ieslēdz treniņrežīmu.</p></div>
       <main className="main-content">
         <div id="questions-container" className="questions-grid">
           {loadState === "loading" && <div className="empty-state"><h3>Ielādē jautājumus…</h3></div>}
@@ -310,8 +222,7 @@ export default function App() {
       </main>
       <QuestionDialog question={activeQuestion} number={activeNumber} query={query} mode={mode} bookmarked={activeQuestion ? bookmarks.has(activeQuestion.id) : false} selection={activeQuestion ? selectionFor(activeQuestion) : undefined} onClose={closeQuestion} onToggleBookmark={toggleBookmark} onSelectOption={selectOption} onOpenImage={(src, trigger) => setImage({ src, trigger })} />
       {image && <ImageLightbox image={image.src} returnFocus={image.trigger} onClose={closeImage} />}
-      {collectorOpen && <CollectorDialog open onClose={closeCollector} collector={collector} token={collectorToken} setToken={(value) => { setCollectorToken(value); setCollectorError(""); }} rounds={collectorRounds} setRounds={setCollectorRounds} onStart={startCollector} error={collectorError} />}
-      {collectorPending && collectorOpen && <div className="collector-toast" role="status">Veido savienojumu ar palīgprogrammu…</div>}
+      </>}
     </>
   );
 }

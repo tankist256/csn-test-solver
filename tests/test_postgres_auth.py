@@ -50,11 +50,12 @@ class PostgresAuthTests(unittest.TestCase):
     def client(self):
         return urllib.request.build_opener(urllib.request.HTTPCookieProcessor(http.cookiejar.CookieJar()))
 
-    def call(self, client, method, path, body=None, csrf=True):
+    def call(self, client, method, path, body=None, csrf=True, extra_headers=None):
         data = json.dumps(body).encode() if body is not None else None
         headers = {"Content-Type": "application/json"} if data is not None else {}
         if csrf and method == "POST":
             headers["X-CSN-Request"] = "1"
+        headers.update(extra_headers or {})
         request = urllib.request.Request(self.base + path, data=data, method=method, headers=headers)
         try:
             with client.open(request) as response:
@@ -75,6 +76,11 @@ class PostgresAuthTests(unittest.TestCase):
         self.assertNotEqual(a["oid"], b["oid"])
         self.assertEqual(self.call(alice, "GET", "/api/auth/session")[1]["oid"], a["oid"])
         self.assertEqual(self.call(bob, "GET", "/api/admin/users")[0], 403)
+        self.assertEqual(self.call(self.client(), "GET", "/api/collector/access")[0], 401)
+        self.assertEqual(self.call(bob, "GET", "/api/collector/access",
+                                   extra_headers={"X-CSN-Collector-Token": "legacy-token"})[0], 403)
+        self.assertEqual(self.call(bob, "GET", "/api/collector/status")[0], 403)
+        self.assertEqual(self.call(bob, "POST", "/api/collector/start", {"rounds": 1})[0], 403)
         self.assertEqual(self.call(alice, "POST", "/api/attempts", {"size": 30}, csrf=False)[0], 403)
 
         status, attempt = self.call(alice, "POST", "/api/attempts", {"size": 30})
@@ -86,6 +92,10 @@ class PostgresAuthTests(unittest.TestCase):
                          attempt["attempt_id"])
 
         self.local_auth.promote(a["oid"])
+        self.assertEqual(self.call(alice, "GET", "/api/collector/access")[1]["available"], True)
+        self.assertEqual(self.call(alice, "GET", "/api/collector/status")[0], 200)
+        self.assertEqual(self.call(alice, "POST", "/api/collector/start", {"rounds": 1}, csrf=False)[0], 403)
+        self.assertEqual(self.call(alice, "POST", "/api/collector/start", {"rounds": 0})[0], 400)
         status, users = self.call(alice, "GET", "/api/admin/users")
         self.assertEqual(status, 200)
         self.assertTrue(any(u["oid"] == b["oid"] for u in users["users"]))

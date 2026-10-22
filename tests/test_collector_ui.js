@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { collectorHeaders, collectorPresentation, clampRounds } from "../solver/src/utils/collector.js";
+import { collectorPresentation, clampRounds } from "../solver/src/utils/collector.js";
 import { isCorrectOption, verifiedCorrectOption } from "../solver/src/utils/answers.js";
 
 const previousRun = {
@@ -37,12 +37,7 @@ test("reconnecting shows the last successful completion as a new ready state", (
   assert.equal(result.previousRun, false);
 });
 
-test("collector requests keep their API headers and limit test counts", () => {
-  assert.deepEqual(collectorHeaders(false, ""), {});
-  assert.deepEqual(collectorHeaders(true, "  secret  ", true), {
-    "Content-Type": "application/json",
-    "X-CSN-Collector-Token": "secret",
-  });
+test("collector requests limit test counts", () => {
   assert.equal(clampRounds("0"), 1);
   assert.equal(clampRounds("12"), 12);
   assert.equal(clampRounds("90"), 50);

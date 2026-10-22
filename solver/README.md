@@ -56,9 +56,9 @@ The terminal shows the computer's network address.
 
 ## Collect questions
 
-When the site runs through the local server, use the question collection button at the top of the page. Choose the number of tests and start collection. The dialog shows the current test and a log. The question list updates when collection finishes.
+When the site runs through the local server, sign in as an administrator and use the collection button in the administration panel on `/tests`. Choose the number of tests and start collection. The dialog shows the current test and a log. Open `/answers` after collection finishes to load the updated list.
 
-When `serve.py` runs directly on the local computer, the button is available without a token. For a public site or Docker, set `CSN_COLLECTOR_TOKEN` and enter the same token in the dialog. Without a token, public users cannot start collection or view its log. Opening `index.html` directly cannot start the Python collector.
+The server requires an administrator session for collection, status and logs. A legacy collector token cannot bypass this check. Opening `index.html` directly cannot start the Python collector. The command-line collector remains available to the server operator.
 
 | Tests | Questions processed | Approximate time | When to use |
 | ---: | ---: | --- | --- |

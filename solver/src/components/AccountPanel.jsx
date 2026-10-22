@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { QuestionMedia } from "./QuestionMedia.jsx";
 import ImageLightbox from "./ImageLightbox.jsx";
+import AdminCollector from "./AdminCollector.jsx";
 
 function messageFor(error) {
   const code = error?.message || error?.error || "";
@@ -33,7 +34,6 @@ export default function AccountPanel() {
   const [image, setImage] = useState(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
-  const [visible, setVisible] = useState(false);
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
   const [password, setPassword] = useState("");
@@ -143,7 +143,6 @@ export default function AccountPanel() {
     try {
       const result = await client.loginPopup({ scopes: config.scopes });
       setAccount(result.account);
-      setVisible(true);
     } catch (failure) { setError(messageFor(failure)); }
   }
 
@@ -161,7 +160,6 @@ export default function AccountPanel() {
       if (!response.ok) throw new Error(body.error || "server_error");
       setAccount(body);
       setPassword("");
-      setVisible(true);
     } catch (failure) { setError(messageFor(failure)); }
     finally { setBusy(false); }
   }
@@ -181,7 +179,6 @@ export default function AccountPanel() {
     setProfile(null);
     setOverview(null);
     setAttempt(null);
-    setVisible(false);
   }
 
   async function start(size) {
@@ -191,7 +188,6 @@ export default function AccountPanel() {
       setAttempt(await request("/api/attempts", {
         method: "POST", body: JSON.stringify({ size }),
       }));
-      setVisible(true);
     } catch (failure) { setError(messageFor(failure)); }
     finally { setBusy(false); }
   }
@@ -220,7 +216,6 @@ export default function AccountPanel() {
   }
 
   async function showAdmin() {
-    setVisible(true);
     setBusy(true);
     try { setUsers((await request("/api/admin/users")).users); }
     catch (failure) { setError(messageFor(failure)); }
@@ -239,14 +234,11 @@ export default function AccountPanel() {
   return (
     <section className="account-area" aria-label="Personīgais progress">
       <div className="account-toolbar">
-        <button className="btn" type="button" onClick={() => setVisible((value) => !value)}
-          aria-expanded={visible}>🏆 {visible ? "Slēpt manus testus" : "Mani testi un progress"}</button>
         {account ? <button className="btn" type="button" onClick={signOut}>Izrakstīties</button>
-          : <button className="btn btn-primary" type="button"
-              onClick={config.auth_mode === "local" ? () => setVisible(true) : signIn}>Pierakstīties</button>}
+          : config.auth_mode !== "local" && <button className="btn btn-primary" type="button" onClick={signIn}>Pierakstīties</button>}
       </div>
       {error && <p className="account-error" role="alert">{error}</p>}
-      {visible && !account && <div className="account-card"><h2>Personīgie testi</h2>
+      {!account && <div className="account-card"><h2>Personīgie testi</h2>
         {config.auth_mode === "local" ? <>
           <p>{registering ? "Izveidojiet kontu, lai saglabātu rezultātus." : "Pierakstieties, lai turpinātu savus testus."}</p>
           <form className="account-form" onSubmit={submitLocal}>
@@ -266,7 +258,7 @@ export default function AccountPanel() {
         </> : <><p>Pierakstieties ar Microsoft kontu, lai saglabātu rezultātus un izpildītu kvestus.</p>
           <button className="btn btn-primary" type="button" onClick={signIn}>Pierakstīties</button></>}
       </div>}
-      {visible && account && <div className="account-content">
+      {account && <div className="account-content">
         <div className="account-card">
           <h2>{profile?.name || account.name || "Mans progress"}</h2>
           <p>Kvestu punkti: <strong>{overview?.total_points ?? 0}</strong></p>
@@ -276,6 +268,7 @@ export default function AccountPanel() {
               type="button" disabled={busy || attempt?.status === "active"} onClick={() => start(size)}>
               Sākt {size} jautājumu testu</button>)}
             <button className="btn" type="button" onClick={loadDashboard}>Atjaunot progresu</button>
+            {profile?.is_admin && <a className="btn" href="#administracija">Administrācija ↓</a>}
           </div>
         </div>
         {attempt?.status === "active" && <div className="account-card test-card">
@@ -314,7 +307,9 @@ export default function AccountPanel() {
               <span>{item.score} punkti · {item.completed} kvesti</span>
             </div>)}</div>
         </div>
-        {profile?.is_admin && <div className="account-card"><h3>Administrācija</h3>
+        {profile?.is_admin && <div className="account-card" id="administracija"><h3>Administrācija</h3>
+          <p>Jautājumu datubāzes papildināšana un lietotāju rezultāti.</p>
+          <AdminCollector request={request} />
           <button className="btn" type="button" disabled={busy} onClick={showAdmin}>Apskatīt lietotājus</button>
           {users.map((user) => <div className="account-row" key={user.oid}>
             <button className="btn" type="button" onClick={() => openUser(user.oid)}>{user.name || user.email || user.oid}</button>

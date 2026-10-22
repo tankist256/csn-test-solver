@@ -24,7 +24,11 @@
       questionData.src = "./questions.js";
       questionData.onload = startApp;
       questionData.onerror = startApp;
-      document.head.append(questionData);
+      if (location.protocol === "file:" || location.pathname === "/answers") {
+        document.head.append(questionData);
+      } else {
+        startApp();
+      }
     </script>
   </body>
 </html>

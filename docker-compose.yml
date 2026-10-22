@@ -6,7 +6,6 @@ services:
     ports:
       - "8080:8080"
     environment:
-      CSN_COLLECTOR_TOKEN: ${CSN_COLLECTOR_TOKEN:-}
       CSN_REMOTE_WORKER: ${CSN_REMOTE_WORKER:-0}
       AUTH_ENABLED: ${AUTH_ENABLED:-0}
       AUTH_MODE: ${AUTH_MODE:-}
