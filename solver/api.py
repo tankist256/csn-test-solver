@@ -9,6 +9,7 @@ answers, and the server grades them and decides which quests are done.
 """
 import json
 import logging
+import os
 import re
 import threading
 from urllib.parse import parse_qs, urlsplit
@@ -22,14 +23,16 @@ except ImportError:
 
 log = logging.getLogger("csn.api")
 
-_lock = threading.Lock()
-_runtime = {"config": None, "verifier": None, "store": None, "service": None}
+_lock = threading.RLock()
+_runtime = {"config": None, "verifier": None, "store": None, "service": None,
+            "engine": None, "local_auth": None}
 
 
-def configure(config=None, verifier=None, store=None, service=None):
+def configure(config=None, verifier=None, store=None, service=None, engine=None, local_auth=None):
     """Inject dependencies (used by tests)."""
     with _lock:
-        _runtime.update(config=config, verifier=verifier, store=store, service=service)
+        _runtime.update(config=config, verifier=verifier, store=store, service=service,
+                        engine=engine, local_auth=local_auth)
 
 
 def reset():
@@ -50,14 +53,49 @@ def _verifier(config):
         return _runtime["verifier"]
 
 
+def _mode(config):
+    return os.environ.get("AUTH_MODE", "").strip().lower() or ("entra" if config.enabled else "off")
+
+
+def _engine():
+    with _lock:
+        if _runtime["engine"] is None:
+            try:
+                from .postgres_store import PostgresEngine
+            except ImportError:
+                from postgres_store import PostgresEngine
+            _runtime["engine"] = PostgresEngine(os.environ.get("DATABASE_URL", ""))
+        return _runtime["engine"]
+
+
+def _local_auth():
+    with _lock:
+        if _runtime["local_auth"] is None:
+            try:
+                from .local_auth import LocalAuth
+            except ImportError:
+                from local_auth import LocalAuth
+            _runtime["local_auth"] = LocalAuth(_engine())
+        return _runtime["local_auth"]
+
+
 def _store():
     with _lock:
         if _runtime["store"] is None:
-            try:
-                from .progress_store import TableStore
-            except ImportError:
-                from progress_store import TableStore
-            _runtime["store"] = TableStore.from_env()
+            backend = os.environ.get("PROGRESS_BACKEND", "").strip() or (
+                "postgres" if _mode(_config()) == "local" else "tables")
+            if backend == "postgres":
+                try:
+                    from .postgres_store import progress_store
+                except ImportError:
+                    from postgres_store import progress_store
+                _runtime["store"] = progress_store(_engine())
+            else:
+                try:
+                    from .progress_store import TableStore
+                except ImportError:
+                    from progress_store import TableStore
+                _runtime["store"] = TableStore.from_env()
         return _runtime["store"]
 
 
@@ -70,10 +108,13 @@ def _service():
 
 
 def public_config(config):
+    if _mode(config) == "local":
+        return {"auth_enabled": bool(os.environ.get("DATABASE_URL")), "auth_mode": "local"}
     if not (config.enabled and config.is_configured()):
         return {"auth_enabled": False}
     return {
         "auth_enabled": True,
+        "auth_mode": "entra",
         "client_id": config.spa_client_id,
         "authority": f"https://{config.tenant_subdomain}.ciamlogin.com/{config.tenant_id}",
         "scopes": [config.api_scope] if config.api_scope else [],
@@ -81,6 +122,12 @@ def public_config(config):
 
 
 def _principal(handler, config):
+    if _mode(config) == "local":
+        try:
+            from .local_auth import session_token
+        except ImportError:
+            from local_auth import session_token
+        return _local_auth().principal(session_token(handler.headers.get("Cookie", "")))
     if not config.is_configured():
         raise AuthError(503, "auth_misconfigured")
     scheme, _, token = handler.headers.get("Authorization", "").partition(" ")
@@ -103,6 +150,57 @@ def _read_json(handler):
         return payload
     except (ValueError, TypeError):
         raise ServiceError(400, "bad_request")
+
+
+def _local_post_allowed(handler):
+    # A cross-origin page cannot send this non-safelisted header without CORS.
+    if handler.headers.get("X-CSN-Request") != "1":
+        raise AuthError(403, "csrf_rejected")
+
+
+def _local_session_body(principal):
+    return {"oid": principal.oid, "name": principal.name, "email": principal.email,
+            "roles": sorted(principal.roles), "is_admin": principal.is_admin}
+
+
+def _handle_local_auth(handler, method, route):
+    try:
+        from .local_auth import cookie_header, session_token
+    except ImportError:
+        from local_auth import cookie_header, session_token
+    try:
+        auth = _local_auth()
+        token = session_token(handler.headers.get("Cookie", ""))
+        if method == "GET" and route == "/api/auth/session":
+            handler.send_json(_local_session_body(auth.principal(token)))
+        elif method == "POST" and route in ("/api/auth/register", "/api/auth/login"):
+            _local_post_allowed(handler)
+            body = _read_json(handler)
+            if route.endswith("register"):
+                principal, new_token = auth.register(body.get("email"), body.get("name"),
+                                                     body.get("password"), handler.client_address[0])
+                status = 201
+            else:
+                principal, new_token = auth.login(body.get("email"), body.get("password"),
+                                                  handler.client_address[0])
+                status = 200
+            _store().upsert_user(principal.oid, principal.email, principal.name)
+            secure = os.environ.get("CSN_COOKIE_SECURE", "1") != "0"
+            handler.send_json(_local_session_body(principal), status,
+                              headers={"Set-Cookie": cookie_header(new_token, secure)})
+        elif method == "POST" and route == "/api/auth/logout":
+            _local_post_allowed(handler)
+            auth.logout(token)
+            secure = os.environ.get("CSN_COOKIE_SECURE", "1") != "0"
+            handler.send_json({"ok": True}, headers={"Set-Cookie": cookie_header("", secure)})
+        else:
+            return False
+    except (AuthError, ServiceError) as error:
+        handler.send_json({"error": error.code}, error.status)
+    except Exception:
+        log.exception("Local auth error on %s %s", method, route)
+        handler.send_json({"error": "server_error"}, 500)
+    return True
 
 
 # Route handlers take (handler, principal, match) and return (body, status).
@@ -178,7 +276,10 @@ def handle(handler, method, route):
     if method == "GET" and route == "/api/config":
         handler.send_json(public_config(config))
         return True
-    if not config.enabled:
+    mode = _mode(config)
+    if mode == "local" and route.startswith("/api/auth/"):
+        return _handle_local_auth(handler, method, route)
+    if mode == "off" or (mode == "entra" and not config.enabled):
         return False
 
     for route_method, pattern, function, admin_only in ROUTES:
@@ -186,6 +287,8 @@ def handle(handler, method, route):
         if route_method != method or not match:
             continue
         try:
+            if mode == "local" and method == "POST":
+                _local_post_allowed(handler)
             principal = _principal(handler, config)
             if admin_only and not principal.is_admin:
                 raise AuthError(403, "forbidden")

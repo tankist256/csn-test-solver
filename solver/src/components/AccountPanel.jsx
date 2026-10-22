@@ -10,6 +10,10 @@ function messageFor(error) {
     question_expired: "Laiks ir beidzies. Tiek atvērts nākamais jautājums.",
     attempt_changed: "Tests tika atjaunināts citā cilnē.",
     not_enough_questions: "Šobrīd nav pietiekami daudz pārbaudītu jautājumu.",
+    invalid_credentials: "Nepareizs e-pasts vai parole.",
+    account_exists: "Konts ar šo e-pastu jau ir izveidots.",
+    bad_account: "Ievadiet vārdu, derīgu e-pastu un paroli ar vismaz 12 rakstzīmēm.",
+    too_many_attempts: "Pārāk daudz mēģinājumu. Mēģiniet vēlāk.",
   };
   return known[code] || "Neizdevās izpildīt pieprasījumu. Mēģiniet vēlreiz.";
 }
@@ -30,6 +34,10 @@ export default function AccountPanel() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [visible, setVisible] = useState(false);
+  const [email, setEmail] = useState("");
+  const [name, setName] = useState("");
+  const [password, setPassword] = useState("");
+  const [registering, setRegistering] = useState(false);
   const clockOffset = useRef(0);
 
   useEffect(() => {
@@ -41,6 +49,11 @@ export default function AccountPanel() {
         if (!active) return;
         setConfig(settings);
         if (!settings.auth_enabled) return;
+        if (settings.auth_mode === "local") {
+          const response = await fetch("/api/auth/session", { cache: "no-store", credentials: "same-origin" });
+          if (response.ok && active) setAccount(await response.json());
+          return;
+        }
         const { PublicClientApplication } = await import("@azure/msal-browser");
         const msal = new PublicClientApplication({
           auth: {
@@ -61,11 +74,14 @@ export default function AccountPanel() {
   }, []);
 
   const request = useCallback(async (path, options = {}) => {
-    if (!client || !account) throw new Error("unauthorized");
-    const token = await client.acquireTokenSilent({ account, scopes: config.scopes });
+    if (!account) throw new Error("unauthorized");
+    const local = config.auth_mode === "local";
+    if (!local && !client) throw new Error("unauthorized");
+    const token = local ? null : await client.acquireTokenSilent({ account, scopes: config.scopes });
     const response = await fetch(path, {
       ...options,
-      headers: { Authorization: `Bearer ${token.accessToken}`,
+      credentials: "same-origin",
+      headers: { ...(local ? { "X-CSN-Request": "1" } : { Authorization: `Bearer ${token.accessToken}` }),
         ...(options.body ? { "Content-Type": "application/json" } : {}) },
       cache: "no-store",
     });
@@ -131,8 +147,36 @@ export default function AccountPanel() {
     } catch (failure) { setError(messageFor(failure)); }
   }
 
+  async function submitLocal(event) {
+    event.preventDefault();
+    setBusy(true);
+    setError("");
+    try {
+      const response = await fetch(registering ? "/api/auth/register" : "/api/auth/login", {
+        method: "POST", credentials: "same-origin", cache: "no-store",
+        headers: { "Content-Type": "application/json", "X-CSN-Request": "1" },
+        body: JSON.stringify({ email, password, ...(registering ? { name } : {}) }),
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body.error || "server_error");
+      setAccount(body);
+      setPassword("");
+      setVisible(true);
+    } catch (failure) { setError(messageFor(failure)); }
+    finally { setBusy(false); }
+  }
+
   async function signOut() {
-    await client.logoutPopup({ account });
+    if (config.auth_mode === "local") {
+      try {
+        const response = await fetch("/api/auth/logout", {
+          method: "POST", credentials: "same-origin", headers: { "X-CSN-Request": "1" },
+        });
+        if (!response.ok) throw new Error("server_error");
+      } catch (failure) { setError(messageFor(failure)); return; }
+    } else {
+      await client.logoutPopup({ account });
+    }
     setAccount(null);
     setProfile(null);
     setOverview(null);
@@ -198,12 +242,30 @@ export default function AccountPanel() {
         <button className="btn" type="button" onClick={() => setVisible((value) => !value)}
           aria-expanded={visible}>🏆 {visible ? "Slēpt manus testus" : "Mani testi un progress"}</button>
         {account ? <button className="btn" type="button" onClick={signOut}>Izrakstīties</button>
-          : <button className="btn btn-primary" type="button" onClick={signIn}>Pierakstīties</button>}
+          : <button className="btn btn-primary" type="button"
+              onClick={config.auth_mode === "local" ? () => setVisible(true) : signIn}>Pierakstīties</button>}
       </div>
       {error && <p className="account-error" role="alert">{error}</p>}
       {visible && !account && <div className="account-card"><h2>Personīgie testi</h2>
-        <p>Pierakstieties ar Microsoft kontu, lai saglabātu rezultātus un izpildītu kvestus.</p>
-        <button className="btn btn-primary" type="button" onClick={signIn}>Pierakstīties</button></div>}
+        {config.auth_mode === "local" ? <>
+          <p>{registering ? "Izveidojiet kontu, lai saglabātu rezultātus." : "Pierakstieties, lai turpinātu savus testus."}</p>
+          <form className="account-form" onSubmit={submitLocal}>
+            {registering && <label>Vārds<input required maxLength={80} autoComplete="name" value={name}
+              onChange={(event) => setName(event.target.value)} /></label>}
+            <label>E-pasts<input required type="email" maxLength={254} autoComplete="email" value={email}
+              onChange={(event) => setEmail(event.target.value)} /></label>
+            <label>Parole<input required type="password" minLength={registering ? 12 : undefined}
+              autoComplete={registering ? "new-password" : "current-password"} value={password}
+              onChange={(event) => setPassword(event.target.value)} /></label>
+            <button className="btn btn-primary" disabled={busy} type="submit">
+              {registering ? "Izveidot kontu" : "Pierakstīties"}</button>
+          </form>
+          {registering && <p>Paroles atjaunošana vēl nav pieejama. Saglabājiet paroli drošā vietā.</p>}
+          <button className="btn" type="button" onClick={() => { setRegistering(!registering); setError(""); }}>
+            {registering ? "Man jau ir konts" : "Izveidot kontu"}</button>
+        </> : <><p>Pierakstieties ar Microsoft kontu, lai saglabātu rezultātus un izpildītu kvestus.</p>
+          <button className="btn btn-primary" type="button" onClick={signIn}>Pierakstīties</button></>}
+      </div>}
       {visible && account && <div className="account-content">
         <div className="account-card">
           <h2>{profile?.name || account.name || "Mans progress"}</h2>

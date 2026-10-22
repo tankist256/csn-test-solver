@@ -39,7 +39,11 @@ rollback() {
 
 git merge --ff-only "$target"
 docker compose config --quiet || rollback
-docker compose up -d --build solver || rollback
+docker compose build solver || rollback
+if grep -Eq '^AUTH_MODE=local$' .env; then
+  docker compose --profile postgres up -d --wait postgres || rollback
+fi
+docker compose up -d --no-build solver || rollback
 
 for _ in {1..60}; do
   if curl --fail --silent --max-time 3 http://127.0.0.1:8080/index.html >/dev/null; then

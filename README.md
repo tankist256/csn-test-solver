@@ -105,6 +105,10 @@ These paths are listed in `.gitignore` to help prevent generated data from being
 
 See [solver/README.md](solver/README.md) for details about the question collector. See [deploy/README.md](deploy/README.md) for Azure setup and checks.
 
+For temporary personal accounts backed by PostgreSQL, see
+[docs/postgres-local-auth.md](docs/postgres-local-auth.md). The Entra External ID
+setup remains documented in [docs/entra-progress-setup.md](docs/entra-progress-setup.md).
+
 ## Docker
 
 If Docker is installed, run:

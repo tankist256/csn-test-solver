@@ -71,6 +71,11 @@ body.question-open { overflow: hidden; }
 .account-row { display: grid; gap: 3px; padding: 10px 0; border-top: 1px solid var(--border-color); }
 .account-row span, .account-row small { color: var(--text-muted); }
 .account-error { color: var(--wrong-text); margin: 10px 0; }
+.account-form { display: grid; gap: 12px; max-width: 420px; margin: 16px 0; }
+.account-form label { display: grid; gap: 5px; font-weight: 600; }
+.account-form input { width: 100%; min-height: 42px; padding: 9px 12px; border: 1px solid var(--border-color);
+  border-radius: 8px; background: var(--surface-color); color: var(--text-main); }
+.account-form input:focus-visible { outline: 2px solid var(--accent-color); outline-offset: 2px; }
 .test-meta { display: flex; justify-content: space-between; gap: 12px; margin-bottom: 12px; }
 .test-options { display: grid; gap: 8px; margin: 16px 0; }
 .test-options .option-item { width: 100%; text-align: left; }

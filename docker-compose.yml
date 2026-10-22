@@ -9,6 +9,10 @@ services:
       CSN_COLLECTOR_TOKEN: ${CSN_COLLECTOR_TOKEN:-}
       CSN_REMOTE_WORKER: ${CSN_REMOTE_WORKER:-0}
       AUTH_ENABLED: ${AUTH_ENABLED:-0}
+      AUTH_MODE: ${AUTH_MODE:-}
+      PROGRESS_BACKEND: ${PROGRESS_BACKEND:-}
+      DATABASE_URL: ${DATABASE_URL:-}
+      CSN_COOKIE_SECURE: ${CSN_COOKIE_SECURE:-1}
       ENTRA_TENANT_ID: ${ENTRA_TENANT_ID:-}
       ENTRA_TENANT_SUBDOMAIN: ${ENTRA_TENANT_SUBDOMAIN:-}
       ENTRA_API_AUDIENCE: ${ENTRA_API_AUDIENCE:-}
@@ -21,6 +25,27 @@ services:
       AZURE_STORAGE_ACCOUNT_URL: ${AZURE_STORAGE_ACCOUNT_URL:-}
     volumes:
       - ./solver:/app/solver
+    restart: unless-stopped
+
+  postgres:
+    image: postgres:17-alpine
+    profiles: [postgres]
+    container_name: csn-postgres
+    environment:
+      POSTGRES_DB: csn
+      POSTGRES_USER: csn
+      POSTGRES_PASSWORD: ${CSN_POSTGRES_PASSWORD:-}
+    command: ["postgres", "-c", "shared_buffers=32MB", "-c", "max_connections=20",
+              "-c", "work_mem=1MB", "-c", "maintenance_work_mem=16MB"]
+    mem_limit: 192m
+    shm_size: 64mb
+    volumes:
+      - csn_postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U csn -d csn"]
+      interval: 5s
+      timeout: 3s
+      retries: 12
     restart: unless-stopped
 
   # Background service that collects questions from CSDD tests.
@@ -38,3 +63,6 @@ services:
     volumes:
       - ./csn_materials:/app/csn_materials
     command: ["python", "parser.py", "--lang", "lv"]
+
+volumes:
+  csn_postgres_data:
