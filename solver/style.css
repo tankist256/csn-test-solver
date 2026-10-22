@@ -82,6 +82,9 @@ body.question-open { overflow: hidden; }
 .test-options .option-item { width: 100%; text-align: left; }
 .test-options .option-item:not(:disabled) { cursor: pointer; }
 .account-detail { border-top: 1px solid var(--border-color); margin-top: 18px; padding-top: 18px; }
+.account-role-control { margin: 16px 0; padding: 16px; border: 1px solid var(--border-color);
+  border-radius: var(--radius); background: var(--bg-color); }
+.account-role-control small { display: block; margin-top: 8px; color: var(--text-muted); }
 
 .app-header {
   position: sticky;

@@ -98,7 +98,8 @@ class PostgresAuthTests(unittest.TestCase):
         self.assertEqual(self.call(alice, "POST", "/api/collector/start", {"rounds": 0})[0], 400)
         status, users = self.call(alice, "GET", "/api/admin/users")
         self.assertEqual(status, 200)
-        self.assertTrue(any(u["oid"] == b["oid"] for u in users["users"]))
+        self.assertTrue(any(u["oid"] == b["oid"] and u["is_admin"] is False
+                            for u in users["users"]))
         self.assertEqual(self.call(alice, "GET", f"/api/admin/users/{b['oid']}/progress")[0], 200)
 
         self.assertEqual(self.call(alice, "POST", "/api/auth/logout")[0], 200)
@@ -108,6 +109,36 @@ class PostgresAuthTests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertTrue(logged_in["is_admin"])
         self.assertEqual(logged_in["oid"], a["oid"])
+
+    def test_admin_can_delegate_and_revoke_without_client_side_trust(self):
+        alice, bob = self.client(), self.client()
+        suffix = uuid.uuid4().hex
+        _, a = self.call(alice, "POST", "/api/auth/register", {
+            "name": "Role owner", "email": f"owner-{suffix}@example.com", "password": "long test password A"})
+        _, b = self.call(bob, "POST", "/api/auth/register", {
+            "name": "Role recipient", "email": f"recipient-{suffix}@example.com", "password": "long test password B"})
+        role_url = f"/api/admin/users/{b['oid']}/role"
+        self.assertEqual(self.call(bob, "POST", role_url, {"is_admin": True})[0], 403)
+        self.local_auth.promote(a["oid"])
+        self.assertEqual(self.call(alice, "POST", role_url, {"is_admin": True}, csrf=False)[0], 403)
+        self.assertEqual(self.call(alice, "POST", role_url, {"is_admin": "true"})[0], 400)
+        self.assertEqual(self.call(alice, "POST", role_url, {"is_admin": True, "email": "x"})[0], 400)
+        self.assertEqual(self.call(alice, "POST", f"/api/admin/users/{'a' * 36}/role",
+                                   {"is_admin": True})[0], 400)
+        self.assertEqual(self.call(alice, "POST", f"/api/admin/users/{uuid.uuid4()}/role",
+                                   {"is_admin": True})[0], 404)
+        status, changed = self.call(alice, "POST", role_url, {"is_admin": True})
+        self.assertEqual((status, changed["oid"], changed["is_admin"]), (200, b["oid"], True))
+        self.assertEqual(self.call(bob, "GET", "/api/admin/users")[0], 200)
+        self.assertEqual(self.call(bob, "POST", f"/api/admin/users/{a['oid']}/role",
+                                   {"is_admin": False})[0], 200)
+        self.assertEqual(self.call(alice, "GET", "/api/admin/users")[0], 403)
+        self.assertEqual(self.call(bob, "POST", f"/api/admin/users/{b['oid']}/role",
+                                   {"is_admin": False})[1]["error"], "self_demote")
+        self.assertEqual(self.call(bob, "GET", "/api/admin/users")[0], 200)
+        self.assertEqual(self.call(bob, "POST", f"/api/admin/users/{a['oid']}/role",
+                                   {"is_admin": True})[0], 200)
+        self.assertEqual(self.call(alice, "GET", "/api/admin/users")[0], 200)
 
     def test_bad_password_and_duplicate_email(self):
         client = self.client()

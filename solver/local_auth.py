@@ -174,6 +174,48 @@ class LocalAuth:
             raise ValueError("account not found")
         return row[0]
 
+    def admin_flags(self):
+        """Return roles for local accounts, keyed by their stable user UUID."""
+        with self.engine.pool.connection() as conn:
+            rows = conn.execute("SELECT id, is_admin FROM local_accounts").fetchall()
+        return {str(user_id): is_admin for user_id, is_admin in rows}
+
+    def set_admin(self, actor_id, target_id, enabled):
+        """Change a local role under one lock so concurrent requests keep an admin."""
+        if type(enabled) is not bool:
+            raise AuthError(400, "bad_request")
+        try:
+            actor_id, target_id = uuid.UUID(str(actor_id)), uuid.UUID(str(target_id))
+        except ValueError:
+            raise AuthError(400, "bad_request")
+        with self.engine.pool.connection() as conn:
+            # Serialize role changes, including checks for the last administrator.
+            conn.execute("SELECT pg_advisory_xact_lock(609281724193)")
+            actor = conn.execute(
+                "SELECT is_admin FROM local_accounts WHERE id = %s", (actor_id,)
+            ).fetchone()
+            if actor is None or not actor[0]:
+                raise AuthError(403, "forbidden")
+            target = conn.execute(
+                "SELECT email, is_admin FROM local_accounts WHERE id = %s", (target_id,)
+            ).fetchone()
+            if target is None:
+                raise AuthError(404, "not_found")
+            if not enabled and actor_id == target_id:
+                raise AuthError(409, "self_demote")
+            if not enabled and target[1]:
+                count = conn.execute(
+                    "SELECT count(*) FROM local_accounts WHERE is_admin = true"
+                ).fetchone()[0]
+                if count <= 1:
+                    raise AuthError(409, "last_admin")
+            if target[1] != enabled:
+                conn.execute(
+                    "UPDATE local_accounts SET is_admin = %s WHERE id = %s",
+                    (enabled, target_id),
+                )
+        return {"oid": str(target_id), "email": target[0], "is_admin": enabled}
+
 
 if __name__ == "__main__":
     import argparse

@@ -15,6 +15,9 @@ function messageFor(error) {
     account_exists: "Konts ar šo e-pastu jau ir izveidots.",
     bad_account: "Ievadiet vārdu, derīgu e-pastu un paroli ar vismaz 12 rakstzīmēm.",
     too_many_attempts: "Pārāk daudz mēģinājumu. Mēģiniet vēlāk.",
+    self_demote: "Savas administratora tiesības nevar noņemt. To var izdarīt cits administrators.",
+    last_admin: "Sistēmā jāpaliek vismaz vienam administratoram.",
+    role_management_unavailable: "Šī konta tiesības jāpārvalda Microsoft Entra vidē.",
   };
   return known[code] || "Neizdevās izpildīt pieprasījumu. Mēģiniet vēlreiz.";
 }
@@ -30,6 +33,8 @@ export default function AccountPanel() {
   const [attempt, setAttempt] = useState(null);
   const [users, setUsers] = useState([]);
   const [selectedUser, setSelectedUser] = useState(null);
+  const [roleBusy, setRoleBusy] = useState(false);
+  const [roleMessage, setRoleMessage] = useState("");
   const [seconds, setSeconds] = useState(60);
   const [image, setImage] = useState(null);
   const [busy, setBusy] = useState(false);
@@ -210,6 +215,7 @@ export default function AccountPanel() {
 
   async function openUser(oid) {
     setBusy(true);
+    setRoleMessage("");
     try { setSelectedUser(await request(`/api/admin/users/${oid}/progress`)); }
     catch (failure) { setError(messageFor(failure)); }
     finally { setBusy(false); }
@@ -220,6 +226,27 @@ export default function AccountPanel() {
     try { setUsers((await request("/api/admin/users")).users); }
     catch (failure) { setError(messageFor(failure)); }
     finally { setBusy(false); }
+  }
+
+  async function changeRole(user) {
+    if (config.auth_mode !== "local" || typeof user.is_admin !== "boolean") return;
+    const nextAdmin = !user.is_admin;
+    const action = nextAdmin ? "piešķirt" : "noņemt";
+    if (!window.confirm(`Vai tiešām ${action} administratora tiesības kontam ${user.email || user.oid}\nID: ${user.oid}?\n\nE-pasta adrese nav verificēta. Pirms tiesību piešķiršanas pārbaudiet konta īpašnieku.`)) return;
+    setRoleBusy(true);
+    setRoleMessage("");
+    setError("");
+    try {
+      const updated = await request(`/api/admin/users/${user.oid}/role`, {
+        method: "POST", body: JSON.stringify({ is_admin: nextAdmin }),
+      });
+      setUsers((current) => current.map((item) => item.oid === user.oid
+        ? { ...item, is_admin: updated.is_admin } : item));
+      setSelectedUser((current) => current?.user.oid === user.oid
+        ? { ...current, user: { ...current.user, is_admin: updated.is_admin } } : current);
+      setRoleMessage(nextAdmin ? "Administratora tiesības piešķirtas." : "Administratora tiesības noņemtas.");
+    } catch (failure) { setError(messageFor(failure)); }
+    finally { setRoleBusy(false); }
   }
 
   if (!config) return null;
@@ -308,14 +335,24 @@ export default function AccountPanel() {
             </div>)}</div>
         </div>
         {profile?.is_admin && <div className="account-card" id="administracija"><h3>Administrācija</h3>
-          <p>Jautājumu datubāzes papildināšana un lietotāju rezultāti.</p>
+          <p>Jautājumu datubāzes papildināšana, lietotāju rezultāti un piekļuves tiesības.</p>
           <AdminCollector request={request} />
           <button className="btn" type="button" disabled={busy} onClick={showAdmin}>Apskatīt lietotājus</button>
           {users.map((user) => <div className="account-row" key={user.oid}>
             <button className="btn" type="button" onClick={() => openUser(user.oid)}>{user.name || user.email || user.oid}</button>
-            <span>{user.total_points} punkti · {user.completed} kvesti</span></div>)}
+            <span>{typeof user.is_admin === "boolean" ? `${user.is_admin ? "Administrators" : "Lietotājs"} · ` : ""}{user.total_points} punkti · {user.completed} kvesti</span></div>)}
           {selectedUser && <div className="account-detail"><h4>{selectedUser.user.name || selectedUser.user.email}</h4>
             <p>{selectedUser.user.email} · {selectedUser.user.oid}</p>
+            {config.auth_mode === "local" && typeof selectedUser.user.is_admin === "boolean" && <div className="account-role-control">
+              <p>Pieeja: <strong>{selectedUser.user.is_admin ? "Administrators" : "Lietotājs"}</strong></p>
+              <p>E-pasts nav verificēts. Pirms administratora tiesību piešķiršanas pārbaudiet, kam konts pieder.</p>
+              <button className="btn" type="button" disabled={roleBusy || (selectedUser.user.is_admin && selectedUser.user.oid === profile?.oid)}
+                onClick={() => changeRole(selectedUser.user)}>
+                {selectedUser.user.is_admin ? "Noņemt administratora tiesības" : "Piešķirt administratora tiesības"}
+              </button>
+              {selectedUser.user.is_admin && selectedUser.user.oid === profile?.oid && <small>Savas tiesības nevar noņemt.</small>}
+              {roleMessage && <p role="status">{roleMessage}</p>}
+            </div>}
             <p>{selectedUser.user.total_points} punkti</p>
             <p>Unikāli pareizi atbildēti jautājumi: {selectedUser.correct_unique}</p>
             <h4>Rezultāti</h4>

@@ -50,8 +50,17 @@ in, then run this **only on the server**:
 docker exec csn-solver python -m solver.local_auth promote <user-uuid>
 ```
 
-Sign out and back in to refresh the visible admin panel. A browser request or
-matching email address cannot grant the Admin role.
+Sign out and back in to refresh the visible admin panel. This server-only
+command bootstraps the first administrator. After that, a signed-in
+administrator can open **Administrācija → Apskatīt lietotājus → user** to
+grant or revoke the Admin role for another local account. The change takes
+effect on that user's next API request. The server checks the acting admin's
+current role inside the database transaction, requires the CSRF header, and
+blocks self-demotion. An ordinary browser request or matching email address
+cannot grant the Admin role. Because email addresses are not verified, check
+the account owner's identity before granting access; the panel shows the
+account UUID to help distinguish accounts. In Entra mode, assign application
+roles in Entra instead; this panel cannot edit Entra claims.
 
 ## Backup and moving hosts
 

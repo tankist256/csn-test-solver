@@ -258,7 +258,12 @@ def _leaderboard(handler, principal, match):
 
 
 def _admin_users(handler, principal, match):
-    return {"users": _store().list_users()}, 200
+    users = _store().list_users()
+    if _mode(_config()) == "local":
+        flags = _local_auth().admin_flags()
+        for user in users:
+            user["is_admin"] = flags.get(user["oid"])
+    return {"users": users}, 200
 
 
 def _admin_user_detail(handler, principal, match):
@@ -267,8 +272,19 @@ def _admin_user_detail(handler, principal, match):
     if user is None:
         raise ServiceError(404, "not_found")
     overview = _service().overview(oid)
+    if _mode(_config()) == "local":
+        user["is_admin"] = _local_auth().admin_flags().get(oid)
     return {"user": user, "quests": overview["quests"], "attempts": _store().list_results(oid),
             "correct_unique": overview["correct_unique"]}, 200
+
+
+def _admin_user_role(handler, principal, match):
+    if _mode(_config()) != "local":
+        raise ServiceError(409, "role_management_unavailable")
+    body = _read_json(handler)
+    if set(body) != {"is_admin"} or type(body["is_admin"]) is not bool:
+        raise ServiceError(400, "bad_request")
+    return _local_auth().set_admin(principal.oid, match.group("oid"), body["is_admin"]), 200
 
 
 # (method, pattern, function, admin_only)
@@ -282,6 +298,7 @@ ROUTES = [
     ("POST", re.compile(r"^/api/attempts/(?P<attempt_id>[0-9a-f]{32})/answer$"), _answer_attempt, False),
     ("GET", re.compile(r"^/api/admin/users$"), _admin_users, True),
     ("GET", re.compile(r"^/api/admin/users/(?P<oid>[0-9a-fA-F-]{36})/progress$"), _admin_user_detail, True),
+    ("POST", re.compile(r"^/api/admin/users/(?P<oid>[0-9a-fA-F-]{36})/role$"), _admin_user_role, True),
 ]
 
 
