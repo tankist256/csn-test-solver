@@ -13,7 +13,7 @@ export default defineConfig({
         index: path.resolve("solver/index.html"),
         app: path.resolve("solver/src/main.jsx"),
       },
-      output: { entryFileNames: "assets/[name].js" },
+      output: { entryFileNames: "assets/[name]-[hash].js" },
     },
   },
 });
