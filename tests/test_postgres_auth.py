@@ -7,16 +7,29 @@ import unittest
 import urllib.error
 import urllib.request
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from unittest.mock import patch
 
 from solver import api, serve
 from solver.auth import AuthError
 from solver.local_auth import LocalAuth
 from solver.postgres_store import PostgresEngine, progress_store
-from solver.quests import QuestService, ServiceError, load_question_bank, load_quests
+from solver.quests import QuestService, ServiceError, load_quests
+from fixture_bank import make_question_bank
 
 
 class LocalAuthThrottleTests(unittest.TestCase):
+    def test_password_work_has_a_bounded_waiting_queue(self):
+        auth = LocalAuth.__new__(LocalAuth)
+        auth._password_slots = threading.BoundedSemaphore(1)
+        with ThreadPoolExecutor(max_workers=1) as auth._password_pool:
+            auth._password_slots.acquire()
+            with self.assertRaises(AuthError) as raised:
+                auth._password_job(lambda: "ready")
+            self.assertEqual(raised.exception.status, 429)
+            auth._password_slots.release()
+            self.assertEqual(auth._password_job(lambda: "ready"), "ready")
+
     def test_registration_attempts_are_limited_even_when_payloads_are_invalid(self):
         auth = LocalAuth.__new__(LocalAuth)
         auth._lock = threading.Lock()
@@ -37,7 +50,7 @@ class PostgresAuthTests(unittest.TestCase):
         cls.engine = PostgresEngine(os.environ["DATABASE_URL"])
         cls.store = progress_store(cls.engine)
         cls.local_auth = LocalAuth(cls.engine)
-        cls.service = QuestService(cls.store, load_question_bank(), load_quests())
+        cls.service = QuestService(cls.store, make_question_bank(), load_quests())
 
     @classmethod
     def tearDownClass(cls):

@@ -327,7 +327,7 @@ export default function AccountPanel() {
           : config.auth_mode !== "local" && <button className="btn btn-primary" type="button" onClick={signIn}>Pierakstīties</button>}
       </div>
       {error && <p className="account-error" role="alert">{error}</p>}
-      {!account && <div className="account-card"><h2>Personīgie testi</h2>
+      {!account && <div className="account-onboarding"><div className="account-card account-login"><span className="eyebrow">Tavs konts</span><h2>Personīgie testi</h2>
         {config.auth_mode === "local" ? <>
           <p>{registering ? "Izveidojiet kontu, lai saglabātu rezultātus." : "Pierakstieties, lai turpinātu savus testus."}</p>
           <form className="account-form" onSubmit={submitLocal}>
@@ -346,7 +346,16 @@ export default function AccountPanel() {
             {registering ? "Man jau ir konts" : "Izveidot kontu"}</button>
         </> : <><p>Pierakstieties ar Microsoft kontu, lai saglabātu rezultātus un izpildītu kvestus.</p>
           <button className="btn btn-primary" type="button" onClick={signIn}>Pierakstīties</button></>}
-      </div>}
+      </div><aside className="account-guide" aria-label="Kā darbojas testi">
+        <span className="eyebrow">Kā tas darbojas</span>
+        <h2>Trenējies ar skaidru mērķi.</h2>
+        <ol>
+          <li><span>01</span><div><strong>Izvēlies testa garumu</strong><p>30, 60 vai 120 jautājumi — atbilstoši tavam laikam.</p></div></li>
+          <li><span>02</span><div><strong>Atbildi savā tempā</strong><p>Katram jautājumam ir 60 sekundes.</p></div></li>
+          <li><span>03</span><div><strong>Redzi savu progresu</strong><p>Rezultāti un kvesti paliek tavā kontā.</p></div></li>
+        </ol>
+        <a href="/answers">Vispirms apskatīt jautājumus <span aria-hidden="true">→</span></a>
+      </aside></div>}
       {account && <div className="account-content">
         <div className="account-card">
           <h2>{profile?.name || account.name || "Mans progress"}</h2>

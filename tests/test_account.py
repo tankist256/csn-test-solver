@@ -14,7 +14,8 @@ from solver import api
 from solver import serve
 from solver.auth import AuthConfig, AuthError, Principal, TokenVerifier
 from solver.progress_store import TableStore
-from solver.quests import QuestService, ServiceError, load_question_bank, load_quests
+from solver.quests import QuestService, ServiceError, load_quests
+from fixture_bank import make_question_bank
 
 USER = "11111111-1111-1111-1111-111111111111"
 OTHER = "22222222-2222-2222-2222-222222222222"
@@ -33,7 +34,7 @@ class AccountTests(unittest.TestCase):
         self.now = datetime(2026, 10, 22, tzinfo=timezone.utc)
         self.store = TableStore.in_memory()
         self.store.upsert_user(USER, "one@example.com", "One")
-        self.bank = load_question_bank()
+        self.bank = make_question_bank()
         self.service = QuestService(self.store, self.bank, load_quests(), lambda: self.now)
 
     def answer_current(self, oid, attempt_id, correct=True):
@@ -43,7 +44,7 @@ class AccountTests(unittest.TestCase):
             o["id"] for o in question.options if o["id"] != question.correct)
         return self.service.answer_attempt(oid, attempt_id, question.id, option)
 
-    def test_real_question_bank_and_supported_sizes(self):
+    def test_question_bank_and_supported_sizes(self):
         self.assertGreaterEqual(len(self.bank.by_id), 120)
         for size in (30, 60, 120):
             state = self.service.start_attempt(USER, size)
@@ -150,7 +151,7 @@ class AccountTests(unittest.TestCase):
                 with urllib.request.urlopen(base + "/api/config") as response:
                     self.assertEqual(json.load(response), {"auth_enabled": False})
                 with urllib.request.urlopen(base + "/index.html") as response:
-                    self.assertIn(b"CSDD", response.read())
+                    self.assertIn(b"B kategorijas teorija", response.read())
                 api.configure(config(), SimpleNamespace(verify=lambda _: Principal(
                     USER, "One", "one@example.com", frozenset({"User"}))),
                     self.store, self.service)

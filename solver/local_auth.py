@@ -27,6 +27,7 @@ COOKIE_NAME = "csn_session"
 SESSION_DAYS = 7
 EMAIL_RE = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
 MAX_PASSWORD_OPERATIONS = 4
+MAX_PASSWORD_IN_FLIGHT = 8
 
 
 def session_token(cookie_header):
@@ -55,6 +56,7 @@ class LocalAuth:
         # so their memory arenas do not grow with the number of HTTP clients.
         self._password_pool = ThreadPoolExecutor(max_workers=MAX_PASSWORD_OPERATIONS,
                                                  thread_name_prefix="csn-password")
+        self._password_slots = threading.BoundedSemaphore(MAX_PASSWORD_IN_FLIGHT)
         self._lock = threading.Lock()
         self._failures = {}
         with engine.pool.connection() as conn:
@@ -104,6 +106,15 @@ class LocalAuth:
             if count >= 12:
                 raise AuthError(429, "too_many_attempts")
 
+    def _password_job(self, operation, *args):
+        # Bound waiting requests as well as active Argon2 workers.
+        if not self._password_slots.acquire(blocking=False):
+            raise AuthError(429, "too_many_attempts")
+        try:
+            return self._password_pool.submit(operation, *args).result()
+        finally:
+            self._password_slots.release()
+
     def register(self, email, name, password, client_ip=""):
         # Count every attempt, including successful registrations, to prevent
         # one client from creating unlimited accounts and password hash jobs.
@@ -116,7 +127,7 @@ class LocalAuth:
                 not 12 <= len(password) <= 128):
             raise AuthError(400, "bad_account")
         user_id = uuid.uuid4()
-        password_hash = self._password_pool.submit(self.hasher.hash, password).result()
+        password_hash = self._password_job(self.hasher.hash, password)
         try:
             with self.engine.pool.connection() as conn:
                 conn.execute("""
@@ -139,8 +150,7 @@ class LocalAuth:
                 FROM local_accounts WHERE email = %s
             """, (email.strip().casefold(),)).fetchone()
         try:
-            valid = row is not None and self._password_pool.submit(
-                self.hasher.verify, row[4], password).result()
+            valid = row is not None and self._password_job(self.hasher.verify, row[4], password)
         except VerificationError:
             valid = False
         if not valid:
