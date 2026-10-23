@@ -7,7 +7,7 @@ COPY solver/index.html solver/style.css ./solver/
 COPY solver/src ./solver/src
 COPY vite.config.js vite.standalone.config.js ./
 COPY scripts ./scripts
-RUN npm run build
+RUN npm run build:web
 
 FROM python:3.12-slim
 

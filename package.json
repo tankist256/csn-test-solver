@@ -4,7 +4,8 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "build": "vite build && node scripts/fix-built-html.js && vite build --config vite.standalone.config.js",
+    "build": "npm run build:web && vite build --config vite.standalone.config.js",
+    "build:web": "vite build && node scripts/fix-built-html.js",
     "test": "node --test tests/*.js"
   },
   "dependencies": {
