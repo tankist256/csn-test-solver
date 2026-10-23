@@ -21,7 +21,8 @@ function readComments(file, source) {
 
 test("uses Latvian page metadata and the React entry point", () => {
   assert.match(html, /<html lang="lv"/);
-  assert.match(html, /<title>CSDD teorija — B kategorijas jautājumi<\/title>/);
+  assert.match(html, /<title>B kategorijas teorija — jautājumi un testi<\/title>/);
+  assert.match(html, /<meta name="description" content="Neoficiāls/);
   assert.match(html, /id="root"/);
   assert.match(html, /app\.src = "\/src\/main\.jsx"/);
   assert.match(html, /app\.src = "dist\/standalone\/standalone\.js"/);

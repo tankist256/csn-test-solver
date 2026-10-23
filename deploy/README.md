@@ -2,6 +2,10 @@
 
 The project is installed on the VM at `/home/tankist256/csn-test-solver`. A systemd timer checks GitHub `main` every two minutes and updates the `solver` container. The question bank and media stay on the VM and are not sent through Git.
 
+Docker Compose publishes the solver only on `127.0.0.1:8080`. Nginx serves the
+public HTTPS endpoint and proxies to that local port. Keep `CSN_BIND_ADDRESS`
+unset (or set it to `127.0.0.1`) on the VM.
+
 ## One-time setup
 
 1. Back up the existing project directory and connect it to GitHub:

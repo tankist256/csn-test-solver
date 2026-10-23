@@ -11,7 +11,10 @@ import json
 import logging
 import os
 import re
+import socket
 import threading
+from functools import lru_cache
+from ipaddress import ip_address
 from urllib.parse import parse_qs, urlsplit
 
 try:
@@ -158,6 +161,37 @@ def _local_post_allowed(handler):
         raise AuthError(403, "csrf_rejected")
 
 
+@lru_cache(maxsize=1)
+def _docker_gateway():
+    """Return the host address seen by this container's TCP server."""
+    if not os.path.exists("/.dockerenv"):
+        return ""
+    try:
+        with open("/proc/net/route", encoding="ascii") as routes:
+            next(routes, None)
+            for line in routes:
+                columns = line.split()
+                if (len(columns) > 3 and columns[1] == "00000000"
+                        and int(columns[3], 16) & 2):
+                    return socket.inet_ntoa(bytes.fromhex(columns[2])[::-1])
+    except (OSError, ValueError):
+        pass
+    return ""
+
+
+def _client_ip(handler):
+    """Use X-Real-IP only from localhost or the Docker host gateway."""
+    peer = handler.client_address[0]
+    try:
+        if ip_address(peer).is_loopback or peer == _docker_gateway():
+            forwarded = handler.headers.get("X-Real-IP", "").strip()
+            if forwarded:
+                return str(ip_address(forwarded))
+    except ValueError:
+        pass
+    return peer
+
+
 def require_admin(handler, method="GET"):
     """Authorize collector operations using the same identity as the admin API."""
     config = _config()
@@ -192,11 +226,11 @@ def _handle_local_auth(handler, method, route):
             body = _read_json(handler)
             if route.endswith("register"):
                 principal, new_token = auth.register(body.get("email"), body.get("name"),
-                                                     body.get("password"), handler.client_address[0])
+                                                     body.get("password"), _client_ip(handler))
                 status = 201
             else:
                 principal, new_token = auth.login(body.get("email"), body.get("password"),
-                                                  handler.client_address[0])
+                                                  _client_ip(handler))
                 status = 200
             _store().upsert_user(principal.oid, principal.email, principal.name)
             secure = os.environ.get("CSN_COOKIE_SECURE", "1") != "0"

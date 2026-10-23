@@ -252,11 +252,23 @@ export default function App() {
       />
       {section === "home" && <main className="landing-page">
         <section className="landing-hero">
-          <span className="eyebrow">B kategorijas teorija</span>
-          <h1>Gatavojies ceļam ar pārliecību.</h1>
-          <p>Atrodi pārbaudītas atbildes vai sāc personīgo testu. Rezultāti, progress un kvesti paliks tavā kontā.</p>
-          <div className="landing-actions"><a className="btn btn-primary" href="/tests">Sākt testu <span aria-hidden="true">↗</span></a>
-            <a className="btn" href="/answers">Skatīt atbildes <span aria-hidden="true">→</span></a></div>
+          <div className="landing-copy">
+            <span className="eyebrow">B kategorijas teorija</span>
+            <h1>Gatavojies ceļam ar pārliecību.</h1>
+            <p>Atrodi pārbaudītas atbildes, trenējies savā tempā un seko līdzi rezultātiem vienuviet.</p>
+            <div className="landing-actions"><a className="btn btn-primary" href="/answers">Izpētīt jautājumus <span aria-hidden="true">→</span></a>
+              <a className="btn" href="/tests">Sākt testu <span aria-hidden="true">↗</span></a></div>
+          </div>
+          <div className="hero-preview" aria-label="Kā notiek mācīšanās">
+            <span className="hero-preview-label">Tavs mācību ritms</span>
+            <div className="hero-preview-road" aria-hidden="true"><span /><span /><span /></div>
+            <div className="hero-preview-steps">
+              <span><b>01</b> Izpēti jautājumus</span>
+              <span><b>02</b> Pārbaudi sevi</span>
+              <span><b>03</b> Redzi progresu</span>
+            </div>
+            <div className="hero-preview-foot"><span>30 / 60 / 120 jautājumi</span><strong>60 s katram</strong></div>
+          </div>
         </section>
         <div className="landing-cards">
           <a className="landing-card" href="/answers"><span className="landing-icon">✓</span><span className="eyebrow">Mācies savā tempā</span>
@@ -359,6 +371,10 @@ export default function App() {
       />
       {image && <ImageLightbox image={image.src} returnFocus={image.trigger} onClose={closeImage} />}
       </>}
+      <footer className="site-footer">
+        <p><strong>CSDD teorija</strong> · Neoficiāls mācību rīks. Pirms eksāmena pārbaudi noteikumus oficiālajos avotos.</p>
+        <a href="https://github.com/tankist256/csn-test-solver" target="_blank" rel="noopener noreferrer">Pirmkods GitHub <span aria-hidden="true">↗</span></a>
+      </footer>
     </>
   );
 }

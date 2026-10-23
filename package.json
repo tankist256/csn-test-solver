@@ -4,7 +4,8 @@
   "version": "1.0.0",
   "type": "module",
   "scripts": {
-    "build": "vite build && node scripts/fix-built-html.js && vite build --config vite.standalone.config.js"
+    "build": "vite build && node scripts/fix-built-html.js && vite build --config vite.standalone.config.js",
+    "test": "node --test tests/*.js"
   },
   "dependencies": {
     "@azure/msal-browser": "^5.26.0",

@@ -1,8 +1,10 @@
-# CSDD Theory Test Solver
+# CSDD Theory Study Tool
 
-A local question bank and study tool for CSDD / CredoAutoprieks category B theory tests in Latvia. Search questions, practise without seeing answers, and collect questions from the official CSDD site. The website interface is in Latvian, and the source questions and answers are kept in Latvian.
+An independent, Latvian-language study tool for category B driving theory. Browse checked answers, practise without previews, and track timed tests and progress in an account.
 
-> This is not an official CSDD service. Before your exam, check important rules against current official materials.
+**[Open the live site](https://20.91.139.58/)** · [Deployment guide](deploy/README.md) · [Account setup](docs/postgres-local-auth.md)
+
+> **Independent project.** This is not an official CSDD service. Check important rules against current official materials before your exam.
 
 ## Features
 
@@ -15,6 +17,12 @@ A local question bank and study tool for CSDD / CredoAutoprieks category B theor
 - Add questions from the site. On Azure, a helper computer collects them while it is online.
 
 An answer is marked as correct only after it is checked against the official CSDD review page. An answer that has not been checked is not shown as correct.
+
+## How it works
+
+The React interface reads a local JSON question bank and media files. A Python server serves the site and checks account permissions, timed answers and scores. PostgreSQL stores local accounts and progress. A separate collector gathers questions on a helper computer and syncs the data to the Azure VM; Git updates deploy only the application code.
+
+The question bank and downloaded media are deliberately excluded from Git. A fresh clone can build and run the interface, but `/answers` needs locally collected data before it can show questions. The automated tests use synthetic questions and do not need the private bank.
 
 ## Quick start
 
@@ -40,6 +48,20 @@ Open [http://localhost:8080](http://localhost:8080) in a browser. The answer ban
 To open the site on a phone on the same Wi-Fi network, use `http://<computer-IP>:8080`. The server prints the computer's address in the terminal.
 
 You can also open `solver/index.html` directly after building the website. This lets you view the question bank already on your computer, but the site cannot start the Python collector without the server.
+
+## Checks
+
+Run these before proposing changes:
+
+```bash
+npm test
+npm run build
+.venv/bin/python -m unittest discover -s tests -v
+```
+
+The Python suite uses synthetic questions. PostgreSQL integration tests run when `DATABASE_URL` points to a disposable database. GitHub Actions runs the build, JavaScript tests and full Python suite with a disposable PostgreSQL service.
+
+Local accounts currently have no email verification or password recovery. This is a personal study project, so avoid using a password that you use elsewhere.
 
 ## Collect questions
 
@@ -116,6 +138,10 @@ docker compose up --build solver
 ```
 
 Then open [http://localhost:8080](http://localhost:8080). Press `Ctrl+C` to stop the server.
+
+Docker Compose binds port 8080 to this computer only. To let a phone on your
+local network connect to the Docker version, run
+`CSN_BIND_ADDRESS=0.0.0.0 docker compose up --build solver` on a trusted network.
 
 ## Azure deployment
 
