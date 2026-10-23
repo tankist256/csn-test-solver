@@ -117,6 +117,10 @@ docker compose up --build solver
 
 Then open [http://localhost:8080](http://localhost:8080). Press `Ctrl+C` to stop the server.
 
+Docker Compose binds port 8080 to this computer only. To let a phone on your
+local network connect to the Docker version, run
+`CSN_BIND_ADDRESS=0.0.0.0 docker compose up --build solver` on a trusted network.
+
 ## Azure deployment
 
 After the one-time setup, the VM checks GitHub for updates to `main` and applies them to the website container. The question bank and media stay on the VM. See [deploy/README.md](deploy/README.md) for setup and verification steps.
