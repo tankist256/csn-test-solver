@@ -105,7 +105,9 @@ class LocalAuth:
                 raise AuthError(429, "too_many_attempts")
 
     def register(self, email, name, password, client_ip=""):
-        self._throttle("register:" + client_ip)
+        # Count every attempt, including successful registrations, to prevent
+        # one client from creating unlimited accounts and password hash jobs.
+        self._throttle("register:" + client_ip, failed=True)
         if not isinstance(email, str) or not isinstance(name, str) or not isinstance(password, str):
             raise AuthError(400, "bad_account")
         email = email.strip().casefold()
@@ -123,7 +125,6 @@ class LocalAuth:
                 """, (user_id, email, name, password_hash))
                 token = self._new_session(conn, user_id)
         except UniqueViolation:
-            self._throttle("register:" + client_ip, failed=True)
             raise AuthError(409, "account_exists")
         return Principal(str(user_id), name, email, frozenset({ROLE_USER})), token
 

@@ -10,9 +10,24 @@ import uuid
 from unittest.mock import patch
 
 from solver import api, serve
+from solver.auth import AuthError
 from solver.local_auth import LocalAuth
 from solver.postgres_store import PostgresEngine, progress_store
 from solver.quests import QuestService, ServiceError, load_question_bank, load_quests
+
+
+class LocalAuthThrottleTests(unittest.TestCase):
+    def test_registration_attempts_are_limited_even_when_payloads_are_invalid(self):
+        auth = LocalAuth.__new__(LocalAuth)
+        auth._lock = threading.Lock()
+        auth._failures = {}
+        for _ in range(11):
+            with self.assertRaises(AuthError) as raised:
+                auth.register(None, None, None, "203.0.113.8")
+            self.assertEqual(raised.exception.code, "bad_account")
+        with self.assertRaises(AuthError) as raised:
+            auth.register(None, None, None, "203.0.113.8")
+        self.assertEqual(raised.exception.status, 429)
 
 
 @unittest.skipUnless(os.environ.get("DATABASE_URL"), "set DATABASE_URL for PostgreSQL integration tests")
